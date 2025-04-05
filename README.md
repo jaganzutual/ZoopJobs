@@ -37,7 +37,7 @@ ZoopJobs is an open-source platform that:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/zoopjobs.git
+   git clone https://github.com/zutual/zoopjobs.git
    cd zoopjobs
    ```
 
