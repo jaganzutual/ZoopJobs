@@ -51,28 +51,55 @@ ZoopJobs is an AI-powered, unified job automation platform that revolutionizes t
 
 ## 🗺️ Roadmap
 
-### Phase 1: Foundation 
+### Foundation
 - [x] Project setup and basic infrastructure
-- [ ] Basic job listing aggregation
-- [ ] Simple job search and filtering
+- [ ] User onboarding flow
+  - [ ] Personal information collection (name, DOB, qualifications, experience)
+  - [ ] Resume upload and parsing
+  - [ ] Job preferences setup
+- [ ] LLM API key configuration
+- [ ] Basic job search interface
 
-### Phase 2: Core Features
-- [ ] AI-powered form filling implementation
-- [ ] One-click application system
-- [ ] Application tracking dashboard
-- [ ] Resume parsing and storage
+### Core Features
+- [ ] AI-Powered Job Search
+  - [ ] Job listing aggregation from multiple sources
+  - [ ] Intelligent job matching based on user preferences
+  - [ ] Job recommendation engine
+- [ ] Resume Management
+  - [ ] Resume parsing and analysis
+  - [ ] Resume format standardization
+  - [ ] Skills extraction and categorization
+- [ ] Automated Application System
+  - [ ] Browser automation setup
+  - [ ] Form field mapping and auto-fill
+  - [ ] One-click application submission
+  - [ ] Application status tracking
 
-### Phase 3: Advanced Features (Q4 2024)
-- [ ] Custom LLM API integration
-- [ ] Advanced job matching algorithm
-- [ ] Automated cover letter generation
-- [ ] Browser extension for direct application
+### Advanced Features
+- [ ] AI Agent Integration
+  - [ ] Browser-use AI agent implementation
+  - [ ] Automated job discovery
+  - [ ] Intelligent form filling
+  - [ ] Application process automation
+- [ ] Smart Job Matching
+  - [ ] Skills-based job matching
+  - [ ] Experience level matching
+  - [ ] Location and remote work preferences
+  - [ ] Salary range matching
 
-### Phase 4: Enhancement (Q1 2025)
-- [ ] Mobile application development
-- [ ] Advanced analytics dashboard
-- [ ] Company insights integration
-- [ ] Interview scheduling automation
+### Enhancement Features
+- [ ] Application Analytics
+  - [ ] Success rate tracking
+  - [ ] Application insights
+  - [ ] Job market trends
+- [ ] Job Search Optimization
+  - [ ] Custom search filters
+  - [ ] Saved searches
+  - [ ] Job alerts
+- [ ] Platform Improvements
+  - [ ] Performance optimization
+  - [ ] User experience enhancements
+  - [ ] API documentation
 
 ## 🤝 Contributing
 
