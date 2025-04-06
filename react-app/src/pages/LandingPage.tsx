@@ -158,9 +158,9 @@ const LandingPage: React.FC = () => {
                 <img src={Logo} alt="ZoopJobs Logo" className="h-10 transition-transform duration-300 group-hover:scale-110" />
               </Link>
               <div className="hidden md:flex items-center gap-6">
-                <Link to="/features" className="nav-link">Features</Link>
-                <Link to="/about" className="nav-link">About</Link>
-                <Link to="/pricing" className="nav-link">Pricing</Link>
+                <a href="#features" className="nav-link text-violet-200 hover:text-white transition-colors">Features</a>
+                <a href="#about" className="nav-link text-violet-200 hover:text-white transition-colors">About</a>
+                <a href="#pricing" className="nav-link text-violet-200 hover:text-white transition-colors">Pricing</a>
               </div>
             </div>
             <div className="flex items-center gap-4">
