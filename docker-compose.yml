@@ -1,37 +1,36 @@
 version: '3.8'
 
 services:
-  backend:
-    build: ./backend
+  fastapi-server:
+    build: ./fastapi-server
+    container_name: zoopjobs-fastapi-server
     ports:
-      - "8000:8000"
+      - "8028:8028"
     volumes:
-      - ./backend:/app
+      - ./fastapi-server:/app
     environment:
-      - POSTGRES_SERVER=db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=zoopjobs
-      - SECRET_KEY=your-secret-key-here
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/zoopjobs
     depends_on:
       - db
 
-  frontend:
-    build: ./frontend/react-app
+  react-app:
+    build: ./react-app
+    container_name: zoopjobs-react-app
     ports:
-      - "3000:3000"
+      - "3028:3028"
     volumes:
-      - ./frontend/react-app:/app
+      - ./react-app:/app
       - /app/node_modules
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_URL=http://localhost:8028
     depends_on:
-      - backend
+      - fastapi-server
 
   db:
     image: postgres:15
+    container_name: zoopjobs-db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres

@@ -1,125 +1,101 @@
-# ZoopJobs
+# ZoopJobs 🚀
 
-An AI-powered job automation platform that helps users track and apply for jobs efficiently.
+![ZoopJobs Logo](assets/logo.png)
 
-## Project Overview
+ZoopJobs is an AI-powered, unified job automation platform that revolutionizes the job search process. It aggregates job listings from various company career pages and enables one-click applications through intelligent automation.
 
-ZoopJobs is an open-source platform that:
-- Aggregates jobs from various company career pages
-- Allows users to track their job applications
-- Provides AI-powered assistance for job applications
-- Supports multiple LLM providers (OpenAI, Together.ai, etc.)
+## 🌟 Features
 
-## Tech Stack
+- **Unified Job Dashboard**: View and filter job listings from multiple company career pages
+- **One-Click Applications**: Automated job application submission
+- **AI-Powered Form Filling**: Smart form completion using stored user data
+- **Application Tracking**: Monitor all your applications in one place
+- **Custom LLM Integration**: Use your preferred LLM API for AI features
+
+## 🛠️ Tech Stack
 
 - **Backend**: FastAPI (Python)
-- **Frontend**: React with TypeScript
+- **Frontend**: React
 - **Database**: PostgreSQL
+- **AI Integration**: Configurable LLM API support
 - **Containerization**: Docker
 
-## Features
-
-- User authentication and authorization
-- Job application tracking
-- AI-powered application assistance
-- Customizable LLM integration
-- Modern, responsive UI
-
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
 - Docker and Docker Compose
-- Node.js (for local frontend development)
-- Python 3.11+ (for local backend development)
+- Node.js 18+ (for local development)
+- Python 3.11+ (for local development)
+- PostgreSQL (for local development)
 
-### Local Development Setup
+### Quick Start
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/zutual/zoopjobs.git
+   git clone https://github.com/yourusername/zoopjobs.git
    cd zoopjobs
    ```
 
-2. Copy the environment template:
-   ```bash
-   cp .env.template .env
-   ```
-
-3. Update the `.env` file with your configuration
-
-4. Start the development environment:
+2. Start the application using Docker Compose:
    ```bash
    docker-compose up --build
    ```
 
-The application will be available at:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
+3. Access the applications:
+   - Frontend: http://localhost:3028
+   - Backend API: http://localhost:8028
+   - API Documentation: http://localhost:8028/docs
 
-### Development without Docker
+## 🗺️ Roadmap
 
-#### Backend Setup
+### Phase 1: Foundation (Q2 2024)
+- [x] Project setup and basic infrastructure
+- [ ] User authentication and profile management
+- [ ] Basic job listing aggregation
+- [ ] Simple job search and filtering
 
-1. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+### Phase 2: Core Features (Q3 2024)
+- [ ] AI-powered form filling implementation
+- [ ] One-click application system
+- [ ] Application tracking dashboard
+- [ ] Resume parsing and storage
 
-2. Install dependencies:
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
+### Phase 3: Advanced Features (Q4 2024)
+- [ ] Custom LLM API integration
+- [ ] Advanced job matching algorithm
+- [ ] Automated cover letter generation
+- [ ] Browser extension for direct application
 
-3. Run the backend:
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+### Phase 4: Enhancement (Q1 2025)
+- [ ] Mobile application development
+- [ ] Advanced analytics dashboard
+- [ ] Company insights integration
+- [ ] Interview scheduling automation
 
-#### Frontend Setup
+## 🤝 Contributing
 
-1. Install dependencies:
-   ```bash
-   cd frontend/react-app
-   npm install
-   ```
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-2. Run the frontend:
-   ```bash
-   npm start
-   ```
-
-## Project Structure
-
-```
-zoopjobs/
-├── backend/           # FastAPI backend
-│   ├── app/          # Application code
-│   ├── tests/        # Backend tests
-│   └── requirements.txt
-├── frontend/         # React frontend
-│   └── react-app/    # React application
-├── docker-compose.yml
-└── README.md
-```
-
-## Contributing
+### Development Setup
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-## License
+## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
-- FastAPI for the amazing backend framework
-- React for the frontend framework
-- All contributors and supporters of the project 
+- All our contributors and supporters
+- Open source community
+- Job seekers who inspire us to make the process better
+
+## 📞 Contact
+
+- GitHub: [@yourusername](https://github.com/yourusername)
+- Email: contact@zoopjobs.com 
