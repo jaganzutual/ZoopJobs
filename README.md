@@ -1,7 +1,7 @@
 # ZoopJobs 🚀
 
 <p align="center">
-  <img src="assets/images/zoopjobs-logo.svg" alt="ZoopJobs Logo" width="600">
+  <img src="assets/images/zoopjobs-logo-with-bg.svg" alt="ZoopJobs Logo" width="600">
 </p>
 
 ZoopJobs is an AI-powered, unified job automation platform that revolutionizes the job search process. It aggregates job listings from various company career pages and enables one-click applications through intelligent automation.
