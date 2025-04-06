@@ -1,6 +1,8 @@
 # ZoopJobs 🚀
 
-![ZoopJobs Logo](assets/logo.png)
+<p align="center">
+  <img src="assets/images/zoopjobs-logo.svg" alt="ZoopJobs Logo" width="600">
+</p>
 
 ZoopJobs is an AI-powered, unified job automation platform that revolutionizes the job search process. It aggregates job listings from various company career pages and enables one-click applications through intelligent automation.
 
@@ -49,13 +51,12 @@ ZoopJobs is an AI-powered, unified job automation platform that revolutionizes t
 
 ## 🗺️ Roadmap
 
-### Phase 1: Foundation (Q2 2024)
+### Phase 1: Foundation 
 - [x] Project setup and basic infrastructure
-- [ ] User authentication and profile management
 - [ ] Basic job listing aggregation
 - [ ] Simple job search and filtering
 
-### Phase 2: Core Features (Q3 2024)
+### Phase 2: Core Features
 - [ ] AI-powered form filling implementation
 - [ ] One-click application system
 - [ ] Application tracking dashboard
@@ -97,5 +98,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: contact@zoopjobs.com 
+- GitHub: [@jaganzutual](https://github.com/jaganzutual)
+- Email: jagan@zutual.com 
