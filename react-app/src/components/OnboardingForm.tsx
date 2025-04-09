@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useSpring, animated } from '@react-spring/web';
+import { ResumeParseResponse } from '../services/resumeService';
 
 interface JobPreferences {
   role: string;
@@ -36,9 +37,10 @@ interface FormData {
 
 interface OnboardingFormProps {
   onComplete: (data: FormData) => void;
+  initialData?: ResumeParseResponse | null;
 }
 
-const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
+const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData }) => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -65,6 +67,26 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
     }
   });
 
+  // Update form data when resume data is loaded
+  React.useEffect(() => {
+    if (initialData) {
+      setFormData(prevData => ({
+        ...prevData,
+        name: initialData.name || prevData.name,
+        location: initialData.location || prevData.location,
+        skills: initialData.skills || prevData.skills,
+        github: initialData.github || prevData.github,
+        linkedin: initialData.linkedIn || prevData.linkedin,
+        education: initialData.education?.map(edu => 
+          `${edu.institution || ''} - ${edu.degree || ''} (${edu.year || ''})`
+        ).join('\n') || prevData.education,
+        experience: initialData.experience?.length 
+          ? String(initialData.experience?.length) 
+          : prevData.experience,
+      }));
+    }
+  }, [initialData]);
+
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [spring, api] = useSpring(() => ({
     from: { opacity: 0, y: 20 },
@@ -79,21 +101,11 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
 
     switch (currentStep) {
       case 1:
-        if (!formData.name.trim()) newErrors.name = 'Name is required';
-        if (!formData.location.trim()) newErrors.location = 'Location is required';
-        if (!formData.experience.trim()) newErrors.experience = 'Experience is required';
-        break;
-      case 2:
-        if (!formData.github.trim()) newErrors.github = 'GitHub profile is required';
-        if (!formData.linkedin.trim()) newErrors.linkedin = 'LinkedIn profile is required';
-        if (!formData.resume) newErrors.resume = 'Resume is required';
-        break;
-      case 3:
         if (formData.skills.length === 0) newErrors.skills = 'At least one skill is required';
         if (!formData.education.trim()) newErrors.education = 'Education is required';
         if (!formData.about.trim()) newErrors.about = 'About section is required';
         break;
-      case 4:
+      case 2:
         if (!formData.jobPreferences.role.trim()) newErrors.jobPreferences = 'Desired role is required';
         if (!formData.jobPreferences.salary.trim()) newErrors.jobPreferences = 'Desired salary is required';
         if (!formData.jobPreferences.remote) newErrors.jobPreferences = 'Remote preference is required';
@@ -173,7 +185,7 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateStep(step)) {
-      if (step < 4) {
+      if (step < 2) {
         setStep(prev => prev + 1);
         api.start({
           from: { opacity: 0, y: 20 },
@@ -190,153 +202,15 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
       case 1:
         return (
           <div className="space-y-6">
-            <h3 className="text-2xl font-bold text-violet-300">Basic Information</h3>
-            <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-slate-100 mb-6 flex items-center">
+              <svg className="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+              </svg>
+              Skills & Experience
+            </h3>
+            <div className="space-y-5">
               <div>
-                <label className="block text-violet-200 mb-2">Full Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.name ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
-                  required
-                />
-                {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
-              </div>
-              <div>
-                <label className="block text-violet-200 mb-2">Location</label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.location ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
-                  required
-                />
-                {errors.location && <p className="text-red-500 text-sm mt-1">{errors.location}</p>}
-              </div>
-              <div>
-                <label className="block text-violet-200 mb-2">Years of Experience</label>
-                <input
-                  type="number"
-                  name="experience"
-                  value={formData.experience}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.experience ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
-                  required
-                />
-                {errors.experience && <p className="text-red-500 text-sm mt-1">{errors.experience}</p>}
-              </div>
-              <div>
-                <label className="block text-violet-200 mb-2">Profile Photo</label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    ref={photoRef}
-                    type="file"
-                    name="photo"
-                    onChange={handleFileChange}
-                    accept="image/*"
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => photoRef.current?.click()}
-                    className="px-4 py-2 rounded-lg bg-gray-800/50 border border-violet-500/20 text-violet-200 hover:bg-gray-800/70 transition-all duration-300"
-                  >
-                    Choose Photo
-                  </button>
-                  {formData.photo && (
-                    <span className="text-violet-200">{formData.photo.name}</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      case 2:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-2xl font-bold text-violet-300">Professional Links</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-violet-200 mb-2">GitHub Profile</label>
-                <input
-                  type="url"
-                  name="github"
-                  value={formData.github}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.github ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
-                  required
-                />
-                {errors.github && <p className="text-red-500 text-sm mt-1">{errors.github}</p>}
-              </div>
-              <div>
-                <label className="block text-violet-200 mb-2">LinkedIn Profile</label>
-                <input
-                  type="url"
-                  name="linkedin"
-                  value={formData.linkedin}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.linkedin ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
-                  required
-                />
-                {errors.linkedin && <p className="text-red-500 text-sm mt-1">{errors.linkedin}</p>}
-              </div>
-              <div>
-                <label className="block text-violet-200 mb-2">Resume</label>
-                <div className="flex items-center space-x-4">
-                  <input
-                    ref={resumeRef}
-                    type="file"
-                    name="resume"
-                    onChange={handleFileChange}
-                    accept=".pdf,.doc,.docx"
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => resumeRef.current?.click()}
-                    className="px-4 py-2 rounded-lg bg-gray-800/50 border border-violet-500/20 text-violet-200 hover:bg-gray-800/70 transition-all duration-300"
-                  >
-                    Choose Resume
-                  </button>
-                  {formData.resume && (
-                    <span className="text-violet-200">{formData.resume.name}</span>
-                  )}
-                </div>
-                {errors.resume && <p className="text-red-500 text-sm mt-1">{errors.resume}</p>}
-              </div>
-              <div>
-                <label className="block text-violet-200 mb-2">Portfolio/Website</label>
-                <input
-                  type="url"
-                  name="socialLinks.portfolio"
-                  value={formData.socialLinks.portfolio || ''}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 rounded-lg bg-gray-800/50 border border-violet-500/20 text-white focus:outline-none focus:border-violet-500"
-                />
-              </div>
-            </div>
-          </div>
-        );
-      case 3:
-        return (
-          <div className="space-y-6">
-            <h3 className="text-2xl font-bold text-violet-300">Skills & Education</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-violet-200 mb-2">Skills (comma separated)</label>
+                <label className="block text-slate-200 mb-2 font-medium">Skills (comma separated)</label>
                 <input
                   type="text"
                   name="skills"
@@ -348,123 +222,164 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
                       setErrors(prev => ({ ...prev, skills: undefined }));
                     }
                   }}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.skills ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
+                  className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
+                    errors.skills ? 'border-red-500' : 'border-slate-600'
+                  } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
+                  placeholder="e.g. React, JavaScript, UI Design"
                 />
-                {errors.skills && <p className="text-red-500 text-sm mt-1">{errors.skills}</p>}
+                {errors.skills && <p className="text-red-400 text-sm mt-1">{errors.skills}</p>}
               </div>
               <div>
-                <label className="block text-violet-200 mb-2">Education</label>
+                <label className="block text-slate-200 mb-2 font-medium">Education</label>
                 <textarea
                   name="education"
                   value={formData.education}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.education ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
+                  className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
+                    errors.education ? 'border-red-500' : 'border-slate-600'
+                  } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
                   rows={3}
                   required
+                  placeholder="Your educational background"
                 />
-                {errors.education && <p className="text-red-500 text-sm mt-1">{errors.education}</p>}
+                {errors.education && <p className="text-red-400 text-sm mt-1">{errors.education}</p>}
               </div>
               <div>
-                <label className="block text-violet-200 mb-2">About You</label>
+                <label className="block text-slate-200 mb-2 font-medium">About You</label>
                 <textarea
                   name="about"
                   value={formData.about}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.about ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
+                  className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
+                    errors.about ? 'border-red-500' : 'border-slate-600'
+                  } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
                   rows={4}
                   required
+                  placeholder="Tell us about yourself, your background, and what you're looking for"
                 />
-                {errors.about && <p className="text-red-500 text-sm mt-1">{errors.about}</p>}
+                {errors.about && <p className="text-red-400 text-sm mt-1">{errors.about}</p>}
               </div>
               <div>
-                <label className="block text-violet-200 mb-2">Key Achievements</label>
+                <label className="block text-slate-200 mb-2 font-medium">Key Achievements</label>
                 <textarea
                   name="achievements"
                   value={formData.achievements}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 rounded-lg bg-gray-800/50 border border-violet-500/20 text-white focus:outline-none focus:border-violet-500"
-                  rows={4}
+                  className="w-full px-4 py-3 rounded-lg bg-slate-800/40 border border-slate-600 text-white focus:outline-none focus:border-blue-400 transition-colors duration-200"
+                  rows={3}
+                  placeholder="Notable projects, awards, or accomplishments"
                 />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-slate-200 mb-2 font-medium">GitHub Profile</label>
+                  <input
+                    type="url"
+                    name="github"
+                    value={formData.github}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-lg bg-slate-800/40 border border-slate-600 text-white focus:outline-none focus:border-blue-400 transition-colors duration-200"
+                    placeholder="https://github.com/yourusername"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-200 mb-2 font-medium">LinkedIn Profile</label>
+                  <input
+                    type="url"
+                    name="linkedin"
+                    value={formData.linkedin}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 rounded-lg bg-slate-800/40 border border-slate-600 text-white focus:outline-none focus:border-blue-400 transition-colors duration-200"
+                    placeholder="https://linkedin.com/in/yourusername"
+                  />
+                </div>
               </div>
             </div>
           </div>
         );
-      case 4:
+      case 2:
         return (
           <div className="space-y-6">
-            <h3 className="text-2xl font-bold text-violet-300">Job Preferences</h3>
-            <div className="space-y-4">
+            <h3 className="text-2xl font-bold text-slate-100 mb-6 flex items-center">
+              <svg className="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+              </svg>
+              Job Preferences
+            </h3>
+            <div className="space-y-5">
               <div>
-                <label className="block text-violet-200 mb-2">Desired Role</label>
+                <label className="block text-slate-200 mb-2 font-medium">Desired Role</label>
                 <input
                   type="text"
                   name="jobPreferences.role"
                   value={formData.jobPreferences.role}
                   onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.jobPreferences ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
+                  className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
+                    errors.jobPreferences ? 'border-red-500' : 'border-slate-600'
+                  } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
                   required
+                  placeholder="e.g. Frontend Developer, UX Designer"
                 />
-                {errors.jobPreferences && <p className="text-red-500 text-sm mt-1">{errors.jobPreferences}</p>}
+                {errors.jobPreferences && <p className="text-red-400 text-sm mt-1">{errors.jobPreferences}</p>}
               </div>
-              <div>
-                <label className="block text-violet-200 mb-2">Desired Salary</label>
-                <input
-                  type="text"
-                  name="jobPreferences.salary"
-                  value={formData.jobPreferences.salary}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.jobPreferences ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
-                  required
-                />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-slate-200 mb-2 font-medium">Desired Salary</label>
+                  <input
+                    type="text"
+                    name="jobPreferences.salary"
+                    value={formData.jobPreferences.salary}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
+                      errors.jobPreferences ? 'border-red-500' : 'border-slate-600'
+                    } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
+                    required
+                    placeholder="e.g. $80,000 - $100,000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-200 mb-2 font-medium">Remote Work Preference</label>
+                  <select
+                    name="jobPreferences.remote"
+                    value={formData.jobPreferences.remote}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
+                      errors.jobPreferences ? 'border-red-500' : 'border-slate-600'
+                    } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
+                    required
+                  >
+                    <option value="">Select preference</option>
+                    <option value="remote">Remote Only</option>
+                    <option value="hybrid">Hybrid</option>
+                    <option value="onsite">Onsite</option>
+                  </select>
+                </div>
               </div>
+              
               <div>
-                <label className="block text-violet-200 mb-2">Remote Work Preference</label>
-                <select
-                  name="jobPreferences.remote"
-                  value={formData.jobPreferences.remote}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 rounded-lg bg-gray-800/50 border ${
-                    errors.jobPreferences ? 'border-red-500' : 'border-violet-500/20'
-                  } text-white focus:outline-none focus:border-violet-500`}
-                  required
-                >
-                  <option value="">Select preference</option>
-                  <option value="remote">Remote Only</option>
-                  <option value="hybrid">Hybrid</option>
-                  <option value="onsite">Onsite</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-violet-200 mb-2">Desired Company Size</label>
-                <div className="space-y-2">
+                <label className="block text-slate-200 mb-2 font-medium">Desired Company Size</label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'].map(size => (
-                    <label key={size} className="flex items-center space-x-2">
+                    <label key={size} className="flex items-center space-x-2 bg-slate-800/30 px-3 py-2 rounded-md border border-slate-700/50 hover:bg-slate-800/50 transition-colors cursor-pointer">
                       <input
                         type="checkbox"
                         name="jobPreferences.companySize"
                         value={size}
                         checked={formData.jobPreferences.companySize.includes(size)}
                         onChange={handleMultiSelect}
-                        className="rounded border-violet-500/20 text-violet-500 focus:ring-violet-500"
+                        className="rounded border-slate-500 text-blue-500 focus:ring-blue-500"
                       />
-                      <span className="text-violet-200">{size} employees</span>
+                      <span className="text-slate-200">{size} employees</span>
                     </label>
                   ))}
                 </div>
               </div>
+              
               <div>
-                <label className="block text-violet-200 mb-2">What are you looking for?</label>
-                <div className="space-y-2">
+                <label className="block text-slate-200 mb-2 font-medium">What are you looking for?</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {[
                     'To build products',
                     'Progression to management',
@@ -473,16 +388,16 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
                     'Challenging problems to work on',
                     'Flexible remote work policy'
                   ].map(want => (
-                    <label key={want} className="flex items-center space-x-2">
+                    <label key={want} className="flex items-center space-x-2 bg-slate-800/30 px-3 py-2 rounded-md border border-slate-700/50 hover:bg-slate-800/50 transition-colors cursor-pointer">
                       <input
                         type="checkbox"
                         name="jobPreferences.wants"
                         value={want}
                         checked={formData.jobPreferences.wants.includes(want)}
                         onChange={handleMultiSelect}
-                        className="rounded border-violet-500/20 text-violet-500 focus:ring-violet-500"
+                        className="rounded border-slate-500 text-blue-500 focus:ring-blue-500"
                       />
-                      <span className="text-violet-200">{want}</span>
+                      <span className="text-slate-200">{want}</span>
                     </label>
                   ))}
                 </div>
@@ -496,45 +411,62 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete }) => {
   };
 
   return (
-    <animated.form onSubmit={handleSubmit} style={spring} className="max-w-2xl mx-auto p-8 bg-gray-900/50 rounded-2xl border border-violet-500/20 backdrop-blur-sm">
+    <animated.form onSubmit={handleSubmit} style={spring} className="max-w-3xl mx-auto">
       <div className="mb-8">
         <div className="flex justify-between mb-2">
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2].map((s) => (
             <div
               key={s}
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                s <= step ? 'bg-violet-500' : 'bg-gray-800'
+              className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                s <= step ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20' : 'bg-slate-800/60 border border-slate-600'
               }`}
             >
-              <span className="text-sm font-medium">{s}</span>
+              <span className="text-sm font-medium text-white">{s}</span>
             </div>
           ))}
         </div>
-        <div className="h-1 bg-gray-800 rounded-full">
+        <div className="h-1.5 bg-slate-800/60 rounded-full mt-2">
           <div
-            className="h-full bg-violet-500 rounded-full transition-all duration-300"
-            style={{ width: `${(step / 4) * 100}%` }}
+            className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-300"
+            style={{ width: `${(step / 2) * 100}%` }}
           />
         </div>
       </div>
 
       {renderStep()}
 
-      <div className="mt-8 flex justify-between">
+      <div className="mt-10 flex justify-between">
         {step > 1 && (
           <button
             type="button"
             onClick={() => setStep(prev => prev - 1)}
-            className="px-6 py-3 rounded-lg bg-gray-800/50 border border-violet-500/20 text-violet-200 hover:bg-gray-800/70 transition-all duration-300"
+            className="px-6 py-3 rounded-lg bg-slate-800/60 border border-slate-600 text-slate-200 hover:bg-slate-800 transition-all duration-300 flex items-center"
           >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"></path>
+            </svg>
             Previous
           </button>
         )}
         <button
           type="submit"
-          className="ml-auto px-6 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition-all duration-300"
+          className="ml-auto px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 shadow-lg shadow-blue-500/20 flex items-center"
         >
-          {step === 4 ? 'Complete Profile' : 'Next'}
+          {step === 2 ? (
+            <>
+              Complete Profile
+              <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </>
+          ) : (
+            <>
+              Next
+              <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"></path>
+              </svg>
+            </>
+          )}
         </button>
       </div>
     </animated.form>
