@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useInView } from 'react-intersection-observer';
 import '../assets/styles/landing.css';
 import Logo from '../assets/images/zoopjobs-logo.svg';
+import OnboardingForm from '../components/OnboardingForm';
 
 interface FloatingObjectProps {
   style?: React.CSSProperties;
@@ -56,10 +57,12 @@ const LandingPage: React.FC = () => {
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
   const [starCount, setStarCount] = useState<number>(0);
   const [clickedObjects, setClickedObjects] = useState<{ [key: string]: boolean }>({});
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [heroRef, heroInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [featuresRef, featuresInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [stepsRef, stepsInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [ctaRef, ctaInView] = useInView({ triggerOnce: true, threshold: 0.1 });
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -147,6 +150,17 @@ const LandingPage: React.FC = () => {
     config: { duration: 800 }
   });
 
+  const handleOnboardingComplete = (data: any) => {
+    // Here you would typically send the data to your backend
+    console.log('Onboarding completed with data:', data);
+    setShowOnboarding(false);
+    // Redirect to dashboard or next step
+  };
+
+  const handleGetStarted = () => {
+    navigate('/onboarding');
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white overflow-hidden">
       {/* Navigation */}
@@ -232,25 +246,29 @@ const LandingPage: React.FC = () => {
         <Particles count={30} />
 
         <div className="container mx-auto px-4 relative z-10">
-          <animated.div style={heroSpring} className="text-center max-w-5xl mx-auto">
-            <div className="mb-6 inline-flex items-center bg-violet-500/10 rounded-full px-4 py-2 border border-violet-500/20">
-              <span className="text-violet-200 text-sm font-medium">Open source AI-Powered Job Automation</span>
-            </div>
-            <h1 className="text-7xl font-bold mb-8 hero-gradient-text leading-tight">
-            Transform Your Job Search Experience
-            </h1>
-            <p className="text-2xl text-violet-200 mb-12 max-w-3xl mx-auto leading-relaxed">
-              One-click applications. Smart form filling. Unified job dashboard.
-            </p>
-            <div className="flex justify-center gap-6">
-              <Link to="/register" className="btn primary large">
-                Getting Started
-              </Link>
-              <Link to="/demo" className="btn secondary large">
-                Watch Demo
-              </Link>
-            </div>
-          </animated.div>
+          {showOnboarding ? (
+            <OnboardingForm onComplete={handleOnboardingComplete} />
+          ) : (
+            <animated.div style={heroSpring} className="text-center max-w-5xl mx-auto">
+              <div className="mb-6 inline-flex items-center bg-violet-500/10 rounded-full px-4 py-2 border border-violet-500/20">
+                <span className="text-violet-200 text-sm font-medium">Open source AI-Powered Job Automation</span>
+              </div>
+              <h1 className="text-7xl font-bold mb-8 hero-gradient-text leading-tight">
+                Transform Your Job Search Experience
+              </h1>
+              <p className="text-2xl text-violet-200 mb-12 max-w-3xl mx-auto leading-relaxed">
+                One-click applications. Smart form filling. Unified job dashboard.
+              </p>
+              <div className="text-center">
+                <button
+                  onClick={handleGetStarted}
+                  className="px-8 py-4 rounded-lg bg-violet-500 text-white text-lg font-medium hover:bg-violet-600 transition-all duration-300"
+                >
+                  Get Started
+                </button>
+              </div>
+            </animated.div>
+          )}
         </div>
       </section>
 
