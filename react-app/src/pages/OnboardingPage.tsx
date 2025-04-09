@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OnboardingForm from '../components/OnboardingForm';
 import ResumeUploadForm from '../components/ResumeUploadForm';
-import { ResumeParseResponse } from '../services/resumeService';
-import { useSpring, animated } from '@react-spring/web';
 import ManualEntryForm from '../components/ManualEntryForm';
+import { useSpring, animated } from '@react-spring/web';
+import { parseResume, ResumeParseResponse } from '../services/resumeService';
+import { hasCompletedOnboarding } from '../services/userService';
 
 const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
   const [resumeData, setResumeData] = useState<ResumeParseResponse | null>(null);
   const [error, setError] = useState<string>('');
   const [showManualForm, setShowManualForm] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   
+  // Spring animations
   const [spring] = useSpring(() => ({
     from: { opacity: 0, y: 20 },
     to: { opacity: 1, y: 0 },
@@ -24,6 +27,25 @@ const OnboardingPage: React.FC = () => {
     config: { tension: 280, friction: 60 },
     delay: 200
   }));
+
+  // Check if user has already completed onboarding
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const completed = await hasCompletedOnboarding();
+        if (completed) {
+          // User has already completed onboarding, redirect to dashboard
+          navigate('/dashboard');
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [navigate]);
 
   const handleResumeDataLoaded = (data: ResumeParseResponse) => {
     setResumeData(data);
@@ -49,6 +71,14 @@ const OnboardingPage: React.FC = () => {
     setShowManualForm(false);
     setResumeData(null);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-indigo-950 flex items-center justify-center">
+        <div className="animate-spin h-12 w-12 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-indigo-950 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">

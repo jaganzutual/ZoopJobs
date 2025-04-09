@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSpring, animated } from '@react-spring/web';
+import apiService from '../services/apiService';
 
 interface ManualEntryFormProps {
   onComplete: (data: any) => void;
@@ -24,6 +25,8 @@ interface FormData {
   culture: Record<string, any>;
 }
 
+const ONBOARDING_MANUAL_ENDPOINT = '/onboarding/manual';
+
 const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToResume }) => {
   const [formData, setFormData] = useState<FormData>({
     personalInfo: {
@@ -42,6 +45,8 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToR
     preferences: {},
     culture: {}
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const [currentSection, setCurrentSection] = useState<'profile' | 'preferences' | 'culture'>('profile');
 
@@ -61,9 +66,38 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToR
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onComplete(formData);
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      // Convert form data to API format
+      const profileData = {
+        first_name: formData.personalInfo.firstName,
+        last_name: formData.personalInfo.lastName,
+        location: formData.personalInfo.location,
+        role: formData.personalInfo.role,
+        experience: formData.personalInfo.experience,
+        is_student: formData.personalInfo.student,
+        job_title: formData.personalInfo.jobTitle,
+        company: formData.personalInfo.company,
+        linkedin: formData.personalInfo.linkedin,
+        website: formData.personalInfo.website,
+        is_employed: formData.personalInfo.employed
+      };
+
+      // Submit to backend API using apiService
+      const response = await apiService.post(ONBOARDING_MANUAL_ENDPOINT, profileData);
+      
+      // Call the onComplete callback with the response data
+      onComplete(response);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setError('An error occurred while submitting the form. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const renderProfileSection = () => (
@@ -212,6 +246,12 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToR
     <animated.form onSubmit={handleSubmit} style={spring} className="space-y-8">
       {currentSection === 'profile' && renderProfileSection()}
 
+      {error && (
+        <div className="text-red-400 bg-red-900/20 px-4 py-3 rounded-lg border border-red-500/30">
+          {error}
+        </div>
+      )}
+
       <div className="flex justify-between pt-6">
         <div className="flex items-center gap-4">
           {currentSection !== 'profile' && (
@@ -219,6 +259,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToR
               type="button"
               onClick={() => setCurrentSection('profile')}
               className="px-4 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-600 transition-colors duration-300"
+              disabled={isSubmitting}
             >
               Previous
             </button>
@@ -228,6 +269,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToR
             type="button"
             onClick={onBackToResume}
             className="px-4 py-2 rounded-lg bg-slate-700 text-white hover:bg-slate-600 transition-colors duration-300 flex items-center"
+            disabled={isSubmitting}
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -238,11 +280,26 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToR
         
         {currentSection === 'profile' && (
           <button
-            type="button"
-            onClick={() => setCurrentSection('preferences')}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300"
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors duration-300 flex items-center"
+            disabled={isSubmitting}
           >
-            Next: Preferences
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Submitting...
+              </>
+            ) : (
+              <>
+                Complete Profile
+                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+              </>
+            )}
           </button>
         )}
       </div>
