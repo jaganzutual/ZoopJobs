@@ -72,16 +72,16 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
     if (initialData) {
       setFormData(prevData => ({
         ...prevData,
-        name: initialData.name || prevData.name,
-        location: initialData.location || prevData.location,
-        skills: initialData.skills || prevData.skills,
-        github: initialData.github || prevData.github,
-        linkedin: initialData.linkedIn || prevData.linkedin,
+        name: initialData.personal_info?.name || prevData.name,
+        location: initialData.personal_info?.location || prevData.location,
+        skills: initialData.skills?.map(skill => skill.name || '').filter(Boolean) || prevData.skills,
+        github: prevData.github, // No github in ResumeParseResponse
+        linkedin: initialData.personal_info?.linkedin || prevData.linkedin,
         education: initialData.education?.map(edu => 
-          `${edu.institution || ''} - ${edu.degree || ''} (${edu.year || ''})`
+          `${edu.institution || ''} - ${edu.degree || ''} (${edu.start_date || ''})`
         ).join('\n') || prevData.education,
-        experience: initialData.experience?.length 
-          ? String(initialData.experience?.length) 
+        experience: initialData.work_experience?.length 
+          ? String(initialData.work_experience?.length) 
           : prevData.experience,
       }));
     }
