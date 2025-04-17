@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { uploadResume, parseResume, ResumeParseResponse } from '../services/resumeService';
+import { uploadResume, parseResume, ResumeParseResponse } from '../../services/resumeService/resumeService';
 
 interface ResumeUploadFormProps {
   onResumeDataLoaded: (data: ResumeParseResponse) => void;
@@ -51,7 +51,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded,
       }
 
       setIsParsing(true);
-      const resumeData = await parseResume(fileId);
+      const resumeData = await parseResume(fileId.id);
       setIsParsing(false);
 
       onResumeDataLoaded(resumeData);

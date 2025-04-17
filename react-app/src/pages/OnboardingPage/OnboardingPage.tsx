@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import OnboardingForm from '../components/OnboardingForm';
-import ResumeUploadForm from '../components/ResumeUploadForm';
-import ManualEntryForm from '../components/ManualEntryForm';
+import OnboardingForm from '../../components/OnboardingForm/OnboardingForm';
+import ResumeUploadForm from '../../components/ResumeUploadForm/ResumeUploadForm';
+import ManualEntryForm from '../../components/ManualEntryForm/ManualEntryForm';
 import { useSpring, animated } from '@react-spring/web';
-import { parseResume, ResumeParseResponse } from '../services/resumeService';
-import { hasCompletedOnboarding } from '../services/userService';
+import { parseResume, ResumeParseResponse } from '../../services/resumeService/resumeService';
+import { hasCompletedOnboarding, updateUserProfile } from '../../services/userService/userService';
 
 const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -75,7 +75,7 @@ const OnboardingPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 to-indigo-950 flex items-center justify-center">
-        <div className="animate-spin h-12 w-12 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+        <div data-testid="loading-spinner" className="animate-spin h-12 w-12 border-4 border-blue-500 rounded-full border-t-transparent"></div>
       </div>
     );
   }

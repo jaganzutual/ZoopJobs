@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useSpring, animated } from '@react-spring/web';
-import { ResumeParseResponse } from '../services/resumeService';
+import { ResumeParseResponse } from '../../services/resumeService/resumeService';
 
 interface JobPreferences {
   role: string;

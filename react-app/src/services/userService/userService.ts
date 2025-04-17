@@ -1,5 +1,5 @@
-import apiService from './apiService';
-import { UserProfile } from './resumeService';
+import apiService from '../apiService/apiService';
+import { UserProfile } from '../../types/user';
 
 // API endpoints
 const USER_PROFILE_ENDPOINT = '/users/me';
