@@ -2,9 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useInView } from 'react-intersection-observer';
-import '../assets/styles/landing.css';
-import Logo from '../assets/images/zoopjobs-logo.svg';
-import OnboardingForm from '../components/OnboardingForm';
+import Logo from '../../assets/images/zoopjobs-logo.svg';
+import OnboardingForm from '../../components/OnboardingForm/OnboardingForm';
+import '../../assets/styles/landing.css';
 
 interface FloatingObjectProps {
   style?: React.CSSProperties;

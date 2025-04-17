@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSpring, animated } from '@react-spring/web';
-import apiService from '../services/apiService';
+import apiService from '../../services/apiService/apiService';
 
 interface ManualEntryFormProps {
   onComplete: (data: any) => void;

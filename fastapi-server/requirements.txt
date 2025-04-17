@@ -10,7 +10,7 @@ langchain-community==0.0.17
 openai==1.13.3
 pypdf==3.17.4
 email-validator==2.1.0
-pydantic[email]==2.5.3
+pydantic==2.6.1
 python-jose[cryptography]==3.3.0
 docx2txt==0.8
 
