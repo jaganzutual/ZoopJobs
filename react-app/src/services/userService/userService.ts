@@ -1,33 +1,55 @@
-import apiService from '../apiService/apiService';
+import axios from 'axios';
 import { UserProfile } from '../../types/user';
-import { USER_PROFILE_ENDPOINT, USER_UPDATE_PROFILE_ENDPOINT } from '../apiService/apiEndpoints';
+
+const API_BASE_URL = '/api/users';
 
 /**
- * Get the current user profile with all data
+ * Get the current user profile with all data including onboarding status
  */
-export const getUserProfile = async (): Promise<UserProfile> => {
-  return apiService.get<UserProfile>(USER_PROFILE_ENDPOINT);
+export const getCurrentUser = async (): Promise<UserProfile | null> => {
+  try {
+    const response = await axios.get<UserProfile>(`${API_BASE_URL}/current`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching current user:', error);
+    return null;
+  }
 };
 
 /**
- * Update user profile
+ * Update user profile and onboarding status
  * @param profileData Profile data to update
  */
-export const updateUserProfile = async (profileData: any): Promise<any> => {
-  return apiService.put(USER_UPDATE_PROFILE_ENDPOINT, profileData);
+export const updateUserProfile = async (profileData: Partial<UserProfile>): Promise<void> => {
+  try {
+    await axios.put(`${API_BASE_URL}/profile`, profileData);
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
 };
+
+export const updateOnboardingStatus = async (status: OnboardingStatus): Promise<void> => {
+  try {
+    await axios.put(`${API_BASE_URL}/onboarding-status`, { status });
+  } catch (error) {
+    console.error('Error updating onboarding status:', error);
+    throw error;
+  }
+};
+
+export type OnboardingStatus = 'not_started' | 'partial' | 'completed';
 
 /**
  * Check if user has completed onboarding
  * This is a helper function to determine if the user needs to go through onboarding
  */
-export const hasCompletedOnboarding = async (): Promise<boolean> => {
+export const hasCompletedOnboarding = async (): Promise<OnboardingStatus> => {
   try {
-    const profile = await getUserProfile();
-    // Check if the user has basic profile information
-    return !!(profile && profile.profile && profile.profile.first_name);
+    const response = await axios.get('/api/user/onboarding-status');
+    return response.data.status;
   } catch (error) {
     console.error('Error checking onboarding status:', error);
-    return false;
+    return 'not_started';
   }
 }; 

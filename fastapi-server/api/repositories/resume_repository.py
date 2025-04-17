@@ -1,68 +1,43 @@
 from sqlalchemy.orm import Session
 import models
 import schemas
-from typing import Optional, List, Dict, Any
-from enum import Enum
+from typing import Optional, Dict, Any
+import os
+from fastapi import UploadFile
+import shutil
+from datetime import datetime
 
-class OnboardingStatus(str, Enum):
-    NOT_STARTED = "not_started"
-    PARTIAL = "partial"
-    COMPLETED = "completed"
+class ResumeRepository:
+    UPLOAD_DIR = "uploads/resumes"
 
-class UserRepository:
     @staticmethod
-    def create_user(db: Session, user: schemas.UserCreate) -> models.User:
-        """Create a new user"""
-        db_user = models.User(
-            email=user.email,
-            onboarding_status=OnboardingStatus.NOT_STARTED
-        )
-        db.add(db_user)
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-    
-    @staticmethod
-    def get_user(db: Session, user_id: int) -> Optional[models.User]:
-        """Get user by ID"""
-        return db.query(models.User).filter(models.User.id == user_id).first()
-    
-    @staticmethod
-    def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
-        """Get user by email"""
-        return db.query(models.User).filter(models.User.email == email).first()
-    
-    @staticmethod
-    def create_user_profile(db: Session, profile: schemas.ProfileCreate, user_id: int) -> models.Profile:
-        """Create or update user profile"""
-        # Check if profile exists
-        db_profile = db.query(models.Profile).filter(models.Profile.user_id == user_id).first()
+    async def save_resume_file(file: UploadFile, user_id: int) -> str:
+        """Save the uploaded resume file to disk"""
+        # Create upload directory if it doesn't exist
+        os.makedirs(ResumeRepository.UPLOAD_DIR, exist_ok=True)
         
-        if db_profile:
-            # Update existing profile
-            for field, value in profile.dict(exclude_unset=True).items():
-                setattr(db_profile, field, value)
-        else:
-            # Create new profile
-            db_profile = models.Profile(
-                user_id=user_id,
-                **profile.dict(exclude_unset=True)
-            )
-            db.add(db_profile)
+        # Generate unique filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_extension = os.path.splitext(file.filename)[1]
+        new_filename = f"user_{user_id}_{timestamp}{file_extension}"
+        file_path = os.path.join(ResumeRepository.UPLOAD_DIR, new_filename)
         
-        db.commit()
-        db.refresh(db_profile)
-        return db_profile
-    
+        # Save the file
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        return file_path
+
     @staticmethod
-    def save_resume(db: Session, user_id: int, file_name: str, parsed_data: Dict[str, Any]) -> models.Resume:
-        """Save or update resume data"""
+    def save_parsed_resume(db: Session, user_id: int, file_path: str, parsed_data: Dict[str, Any]) -> models.Resume:
+        """Save or update parsed resume data"""
         # Check if resume exists
         db_resume = db.query(models.Resume).filter(models.Resume.user_id == user_id).first()
         
         if db_resume:
             # Update existing resume
-            db_resume.file_name = file_name
+            db_resume.file_path = file_path
             db_resume.parsed_data = parsed_data
             
             # Clean up old relations
@@ -73,7 +48,7 @@ class UserRepository:
             # Create new resume
             db_resume = models.Resume(
                 user_id=user_id,
-                file_name=file_name,
+                file_path=file_path,
                 parsed_data=parsed_data
             )
             db.add(db_resume)
@@ -120,18 +95,23 @@ class UserRepository:
         db.commit()
         db.refresh(db_resume)
         return db_resume
-    
+
     @staticmethod
-    def get_user_with_profile_and_resume(db: Session, user_id: int) -> Optional[models.User]:
-        """Get user with profile and resume data"""
-        return db.query(models.User).filter(models.User.id == user_id).first()
-    
+    def get_resume(db: Session, user_id: int) -> Optional[models.Resume]:
+        """Get resume by user ID"""
+        return db.query(models.Resume).filter(models.Resume.user_id == user_id).first()
+
     @staticmethod
-    def update_onboarding_status(db: Session, user_id: int, status: OnboardingStatus) -> models.User:
-        """Update user's onboarding status"""
-        db_user = db.query(models.User).filter(models.User.id == user_id).first()
-        if db_user:
-            db_user.onboarding_status = status
+    def delete_resume(db: Session, user_id: int) -> bool:
+        """Delete resume and associated file"""
+        db_resume = ResumeRepository.get_resume(db, user_id)
+        if db_resume:
+            # Delete the physical file
+            if os.path.exists(db_resume.file_path):
+                os.remove(db_resume.file_path)
+            
+            # Delete from database
+            db.delete(db_resume)
             db.commit()
-            db.refresh(db_user)
-        return db_user 
+            return True
+        return False 

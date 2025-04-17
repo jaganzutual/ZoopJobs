@@ -1,138 +1,65 @@
-import apiService from '../apiService/apiService';
-import { updateUserProfile, getUserProfile, hasCompletedOnboarding } from './userService';
+import { updateUserProfile, getCurrentUser } from './userService';
 import { UserProfile } from '../../types/user';
+import axios from 'axios';
 
-// Mock the API service
-jest.mock('../apiService/apiService', () => ({
-  __esModule: true,
-  default: {
-    post: jest.fn(),
-    put: jest.fn(),
-    get: jest.fn(),
-  },
-}));
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-describe('User Service', () => {
-  const mockedApiService = apiService as jest.Mocked<typeof apiService>;
-  
+describe('userService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
+  describe('getCurrentUser', () => {
+    const mockUser: UserProfile = {
+      id: 123,
+      email: 'test@example.com',
+      onboarding_status: 'not_started',
+      created_at: '2023-01-01',
+      updated_at: '2023-01-01',
+      profile: {
+        location: 'New York',
+        job_title: 'Software Engineer',
+        bio: 'Passionate developer',
+        skills: ['React', 'TypeScript']
+      }
+    };
+
+    it('should return user data when API call is successful', async () => {
+      mockedAxios.get.mockResolvedValueOnce({ data: mockUser });
+      const result = await getCurrentUser();
+      expect(result).toEqual(mockUser);
+      expect(mockedAxios.get).toHaveBeenCalledWith('/api/user');
+    });
+
+    it('should return null when API call fails', async () => {
+      mockedAxios.get.mockRejectedValueOnce(new Error('API Error'));
+      const result = await getCurrentUser();
+      expect(result).toBeNull();
+    });
+  });
+
   describe('updateUserProfile', () => {
-    const mockProfileData = {
+    const mockProfileUpdate: Partial<UserProfile> = {
       first_name: 'John',
       last_name: 'Doe',
-      location: 'San Francisco',
-      job_title: 'Software Developer',
-    };
-
-    const mockResponse = {
-      id: 123,
-      email: 'john@example.com',
-      created_at: '2023-02-01T00:00:00Z',
+      onboarding_status: 'partial',
       profile: {
-        id: 456,
-        user_id: 123,
-        first_name: 'John',
-        last_name: 'Doe',
-        location: 'San Francisco',
-        job_title: 'Software Developer',
-        is_student: false,
-        is_employed: true
-      }
-    };
-
-    test('updates user profile correctly', async () => {
-      mockedApiService.put.mockResolvedValueOnce(mockResponse);
-      
-      const result = await updateUserProfile(mockProfileData);
-      
-      expect(mockedApiService.put).toHaveBeenCalledWith('/users/profile', mockProfileData);
-      expect(result).toEqual(mockResponse);
-    });
-
-    test('handles update errors', async () => {
-      const mockError = new Error('User not found');
-      mockedApiService.put.mockRejectedValueOnce(mockError);
-      
-      await expect(updateUserProfile(mockProfileData)).rejects.toThrow('User not found');
-    });
-  });
-
-  describe('getUserProfile', () => {
-    const mockProfileResponse: UserProfile = {
-      id: "123",
-      email: 'john@example.com',
-      created_at: '2023-02-01T00:00:00Z',
-      updated_at: '2023-02-01T00:00:00Z',
-      profile: {
-        first_name: 'John',
-        last_name: 'Doe',
         location: 'New York',
-        linkedin: 'linkedin.com/johndoe',
-        website: 'johndoe.com'
+        job_title: 'Senior Developer'
       }
     };
 
-    test('gets current user profile correctly', async () => {
-      mockedApiService.get.mockResolvedValueOnce(mockProfileResponse);
-      
-      const result = await getUserProfile();
-      
-      expect(mockedApiService.get).toHaveBeenCalledWith('/users/me');
-      expect(result).toEqual(mockProfileResponse);
+    it('should update profile successfully', async () => {
+      mockedAxios.put.mockResolvedValueOnce({ data: {} });
+      await updateUserProfile(mockProfileUpdate);
+      expect(mockedAxios.put).toHaveBeenCalledWith('/api/user', mockProfileUpdate);
     });
 
-    test('handles profile retrieval errors', async () => {
-      const mockError = new Error('Profile not found');
-      mockedApiService.get.mockRejectedValueOnce(mockError);
-      
-      await expect(getUserProfile()).rejects.toThrow('Profile not found');
-    });
-  });
-
-  describe('hasCompletedOnboarding', () => {
-    test('returns true when profile has first_name', async () => {
-      const mockProfile: UserProfile = {
-        id: "123",
-        email: "test@example.com",
-        created_at: '2023-01-01',
-        updated_at: '2023-01-01',
-        profile: {
-          first_name: 'John'
-        }
-      };
-      
-      mockedApiService.get.mockResolvedValueOnce(mockProfile);
-      
-      const result = await hasCompletedOnboarding();
-      
-      expect(result).toBe(true);
-    });
-
-    test('returns false when profile has no first_name', async () => {
-      const mockProfile: UserProfile = {
-        id: "123",
-        email: "test@example.com",
-        created_at: '2023-01-01',
-        updated_at: '2023-01-01',
-        profile: {}
-      };
-      
-      mockedApiService.get.mockResolvedValueOnce(mockProfile);
-      
-      const result = await hasCompletedOnboarding();
-      
-      expect(result).toBe(false);
-    });
-
-    test('returns false when error occurs', async () => {
-      mockedApiService.get.mockRejectedValueOnce(new Error('API error'));
-      
-      const result = await hasCompletedOnboarding();
-      
-      expect(result).toBe(false);
+    it('should throw error when update fails', async () => {
+      const error = new Error('Update failed');
+      mockedAxios.put.mockRejectedValueOnce(error);
+      await expect(updateUserProfile(mockProfileUpdate)).rejects.toThrow('Update failed');
     });
   });
 }); 

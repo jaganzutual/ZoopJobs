@@ -59,12 +59,16 @@ class ApiService {
   // File upload with FormData
   async uploadFile<T>(endpoint: string, formData: FormData, config?: AxiosRequestConfig): Promise<T> {
     try {
+      // Create a new config that preserves the FormData boundary
       const uploadConfig: AxiosRequestConfig = {
         ...config,
         headers: {
+          'accept': 'application/json',
           'Content-Type': 'multipart/form-data',
           ...config?.headers,
         },
+        // Important: Let the browser set the Content-Type header with boundary
+        transformRequest: [(data) => data],
       };
       
       const response: AxiosResponse<T> = await apiClient.post(endpoint, formData, uploadConfig);
@@ -80,6 +84,11 @@ class ApiService {
     if (axios.isAxiosError(error)) {
       const serverError = error.response?.data;
       console.error('API Error:', serverError || error.message);
+      console.error('Request details:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers,
+      });
     } else {
       console.error('Unexpected error:', error);
     }

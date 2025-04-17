@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useInView } from 'react-intersection-observer';
 import Logo from '../../assets/images/zoopjobs-logo.svg';
+import { hasCompletedOnboarding, OnboardingStatus } from '../../services/userService/userService';
 import OnboardingForm from '../../components/OnboardingForm/OnboardingForm';
 import '../../assets/styles/landing.css';
 
@@ -63,6 +64,7 @@ const LandingPage: React.FC = () => {
   const [stepsRef, stepsInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [ctaRef, ctaInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -102,6 +104,26 @@ const LandingPage: React.FC = () => {
 
     fetchStarCount();
   }, []);
+
+  // Check onboarding status when component mounts
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const status = await hasCompletedOnboarding();
+        if (status === 'completed') {
+          // If onboarding is completed, redirect to dashboard
+          navigate('/dashboard');
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+        setIsLoading(false);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [navigate]);
 
   const handleObjectClick = useCallback((objectId: string) => {
     setClickedObjects(prev => ({
@@ -160,6 +182,15 @@ const LandingPage: React.FC = () => {
   const handleGetStarted = () => {
     navigate('/onboarding');
   };
+
+  // Show loading spinner while checking status
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-indigo-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white overflow-hidden">

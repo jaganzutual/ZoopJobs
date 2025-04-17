@@ -21,7 +21,7 @@ export interface WorkExperience {
 export interface Skill {
   name: string;
   category?: string;
-  years: number;
+  years?: number;
 }
 
 export interface PersonalInfo {
@@ -47,15 +47,24 @@ export interface UploadResponse {
 }
 
 /**
- * Upload a resume file
+ * Upload and parse a resume file
  * @param file The resume file to upload
- * @returns The response from the API
+ * @returns The parsed resume data
  */
-export const uploadResume = async (file: File): Promise<UploadResponse> => {
+export const uploadResume = async (file: File): Promise<ResumeParseResponse> => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    return await apiService.uploadFile(RESUME_UPLOAD_ENDPOINT, formData);
+
+    return await apiService.post<ResumeParseResponse>(
+      RESUME_UPLOAD_ENDPOINT,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
   } catch (error) {
     console.error('Error uploading resume:', error);
     throw error;
@@ -63,31 +72,31 @@ export const uploadResume = async (file: File): Promise<UploadResponse> => {
 };
 
 /**
- * Parse a resume file
- * @param fileId The ID of the uploaded resume file
- * @returns The parsed resume data
+ * Save the parsed resume data
+ * @param fileName The name of the uploaded file
+ * @param parsedData The parsed resume data
+ * @returns The saved resume data
  */
-export const parseResume = async (fileId: string): Promise<ResumeParseResponse> => {
+export const saveResume = async (fileName: string, parsedData: ResumeParseResponse): Promise<ResumeParseResponse> => {
   try {
-    // Send the fileId for parsing
-    const parsedData = await apiService.post<ResumeParseResponse>(RESUME_PARSE_ENDPOINT, {
-      fileId
-    });
-    
-    // Return the parsed data
-    return {
-      personal_info: parsedData.personal_info || {
-        name: '',
-        email: '',
-        phone: '',
-        location: ''
-      },
-      education: parsedData.education || [],
-      work_experience: parsedData.work_experience || [],
-      skills: parsedData.skills || []
-    };
+    const formData = new FormData();
+    formData.append('file_name', fileName);
+    formData.append('personal_info', JSON.stringify(parsedData.personal_info));
+    formData.append('education', JSON.stringify(parsedData.education));
+    formData.append('work_experience', JSON.stringify(parsedData.work_experience));
+    formData.append('skills', JSON.stringify(parsedData.skills));
+
+    return await apiService.post<ResumeParseResponse>(
+      RESUME_PARSE_ENDPOINT,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
   } catch (error) {
-    console.error('Error parsing resume:', error);
+    console.error('Error saving resume:', error);
     throw error;
   }
 }; 

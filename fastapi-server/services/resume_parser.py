@@ -1,55 +1,79 @@
 import os
-from typing import Dict, Any, List
-import openai
+from typing import Dict, Any, List, Optional
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field, ConfigDict
 from pypdf import PdfReader
 import tempfile
 import json
-import os
 from dotenv import load_dotenv
-from unittest.mock import MagicMock
 
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-class MockOpenAIClient:
-    """A mock OpenAI client for testing purposes"""
-    def __init__(self, mock_response=None):
-        self.mock_response = mock_response or {
-            "personal_info": {},
-            "education": [],
-            "work_experience": [],
-            "skills": []
-        }
-        self.chat = MagicMock()
-        self.chat.completions = MagicMock()
-        self.chat.completions.create = self._mock_create
-    
-    def _mock_create(self, model=None, temperature=None, messages=None, response_format=None):
-        """Mock the create method to return a predefined response"""
-        class MockMessage:
-            def __init__(self, content):
-                self.content = content
-        
-        class MockChoice:
-            def __init__(self, message):
-                self.message = message
-        
-        class MockResponse:
-            def __init__(self, choices):
-                self.choices = choices
-        
-        # Create a mock message with the JSON response
-        message = MockMessage(json.dumps(self.mock_response))
-        choice = MockChoice(message)
-        return MockResponse([choice])
+class PersonalInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    name: Optional[str] = Field(None, description="Full name of the person")
+    email: Optional[str] = Field(None, description="Email address")
+    phone: Optional[str] = Field(None, description="Phone number")
+    location: Optional[str] = Field(None, description="Location/address")
+    linkedin: Optional[str] = Field(None, description="LinkedIn profile URL")
+    website: Optional[str] = Field(None, description="Personal website URL")
+    summary: Optional[str] = Field(None, description="Professional summary")
+
+class Education(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    institution: Optional[str] = Field(None, description="Name of the educational institution")
+    degree: Optional[str] = Field(None, description="Degree obtained")
+    field_of_study: Optional[str] = Field(None, description="Field of study/major")
+    start_date: Optional[str] = Field(None, description="Start date of education")
+    end_date: Optional[str] = Field(None, description="End date of education")
+    description: Optional[str] = Field(None, description="Description of education")
+
+class WorkExperience(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    company: Optional[str] = Field(None, description="Company name")
+    job_title: Optional[str] = Field(None, description="Job title/position")
+    start_date: Optional[str] = Field(None, description="Start date of work")
+    end_date: Optional[str] = Field(None, description="End date of work")
+    description: Optional[str] = Field(None, description="Job description and responsibilities")
+
+class Skill(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    name: str = Field(..., description="Name of the skill")
+    category: Optional[str] = Field(None, description="Category of the skill")
+
+class ResumeData(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    personal_info: PersonalInfo = Field(..., description="Personal information")
+    education: List[Education] = Field(default_factory=list, description="List of education entries")
+    work_experience: List[WorkExperience] = Field(default_factory=list, description="List of work experience entries")
+    skills: List[Skill] = Field(default_factory=list, description="List of skills")
 
 class ResumeParser:
-    def __init__(self, mock_client=None):
-        if mock_client:
-            self.client = mock_client
-        else:
-            self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    def __init__(self):
+        self.llm = ChatOpenAI(
+            model_name="gpt-4",
+            temperature=0,
+            api_key=OPENAI_API_KEY
+        )
+        self.output_parser = PydanticOutputParser(pydantic_object=ResumeData)
+        
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are an expert resume parser. Extract the following information from the resume text:
+            
+            1. Personal Information (name, email, phone, location)
+            2. Education History (institution, degree, field of study, dates)
+            3. Work Experience (company, job title, dates, responsibilities)
+            4. Skills (technical skills, soft skills, tools)
+            
+            Format the output exactly according to the following schema:
+            {format_instructions}
+            """),
+            ("human", "{resume_text}")
+        ])
     
     def _extract_text_from_pdf(self, file_path: str) -> str:
         """Extract text from PDF file."""
@@ -82,70 +106,23 @@ class ResumeParser:
             return ""
     
     def parse_resume(self, resume_text: str) -> Dict[str, Any]:
-        """Parse resume text using OpenAI."""
-        system_prompt = """
-        You are an expert resume parser. Extract the following information from the resume text:
-        
-        1. Personal Information (name, email, phone, location)
-        2. Education History (institution, degree, field of study, dates)
-        3. Work Experience (company, job title, dates, responsibilities)
-        4. Skills (technical skills, soft skills, tools)
-        
-        Return the extracted information as a valid JSON with the following structure:
-        {
-            "personal_info": {
-                "name": "",
-                "email": "",
-                "phone": "",
-                "location": "",
-                "linkedin": "",
-                "website": "",
-                "summary": ""
-            },
-            "education": [
-                {
-                    "institution": "",
-                    "degree": "",
-                    "field_of_study": "",
-                    "start_date": "",
-                    "end_date": "",
-                    "description": ""
-                }
-            ],
-            "work_experience": [
-                {
-                    "company": "",
-                    "job_title": "",
-                    "start_date": "",
-                    "end_date": "",
-                    "description": ""
-                }
-            ],
-            "skills": [
-                {
-                    "name": "",
-                    "category": ""
-                }
-            ]
-        }
-        
-        Ensure this is valid JSON format with no trailing commas. Use empty strings for missing information.
-        """
-        
+        """Parse resume text using LangChain."""
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                temperature=0,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": resume_text}
-                ],
-                response_format={"type": "json_object"}
+            # Format the prompt with the resume text and format instructions
+            formatted_prompt = self.prompt.format_messages(
+                resume_text=resume_text,
+                format_instructions=self.output_parser.get_format_instructions()
             )
             
-            result = response.choices[0].message.content
-            parsed_data = json.loads(result.strip())
-            return parsed_data
+            # Get response from LLM
+            response = self.llm.invoke(formatted_prompt)
+            
+            # Parse the response into our schema
+            parsed_data = self.output_parser.parse(response.content)
+            
+            # Convert to dict for JSON serialization
+            return parsed_data.model_dump()
+            
         except Exception as e:
             print(f"Error parsing resume: {e}")
             return {
@@ -161,7 +138,8 @@ class ResumeParser:
             # Create a temporary file to store the uploaded resume
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 # Write the uploaded file content to the temporary file
-                temp_file.write(await file.read())
+                content = await file.read()
+                temp_file.write(content)
                 temp_file_path = temp_file.name
             
             # Get the file extension

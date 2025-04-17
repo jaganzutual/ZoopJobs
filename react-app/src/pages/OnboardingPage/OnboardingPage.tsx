@@ -4,8 +4,8 @@ import OnboardingForm from '../../components/OnboardingForm/OnboardingForm';
 import ResumeUploadForm from '../../components/ResumeUploadForm/ResumeUploadForm';
 import ManualEntryForm from '../../components/ManualEntryForm/ManualEntryForm';
 import { useSpring, animated } from '@react-spring/web';
-import { parseResume, ResumeParseResponse } from '../../services/resumeService/resumeService';
-import { hasCompletedOnboarding, updateUserProfile } from '../../services/userService/userService';
+import { uploadResume, ResumeParseResponse } from '../../services/resumeService/resumeService';
+import { hasCompletedOnboarding, updateUserProfile, OnboardingStatus } from '../../services/userService/userService';
 
 const OnboardingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +13,7 @@ const OnboardingPage: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [showManualForm, setShowManualForm] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [onboardingStep, setOnboardingStep] = useState<number>(1);
   
   // Spring animations
   const [spring] = useSpring(() => ({
@@ -32,10 +33,12 @@ const OnboardingPage: React.FC = () => {
   useEffect(() => {
     const checkOnboardingStatus = async () => {
       try {
-        const completed = await hasCompletedOnboarding();
-        if (completed) {
-          // User has already completed onboarding, redirect to dashboard
+        const status = await hasCompletedOnboarding();
+        if (status === 'completed') {
           navigate('/dashboard');
+        } else if (status === 'partial') {
+          // If partially completed, we could potentially restore their progress
+          setOnboardingStep(2);
         }
       } catch (error) {
         console.error('Error checking onboarding status:', error);
@@ -47,19 +50,35 @@ const OnboardingPage: React.FC = () => {
     checkOnboardingStatus();
   }, [navigate]);
 
-  const handleResumeDataLoaded = (data: ResumeParseResponse) => {
+  const handleResumeDataLoaded = async (data: ResumeParseResponse) => {
     setResumeData(data);
     setError('');
     setShowManualForm(false);
+    // Update onboarding status to partial after resume upload
+    try {
+      await updateUserProfile({ onboarding_status: 'partial' });
+      setOnboardingStep(2);
+    } catch (error) {
+      console.error('Error updating onboarding status:', error);
+    }
   };
 
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
   };
 
-  const handleOnboardingComplete = (data: any) => {
-    console.log('Onboarding completed:', data);
-    navigate('/dashboard');
+  const handleOnboardingComplete = async (data: any) => {
+    try {
+      // Update user profile and set onboarding status to completed
+      await updateUserProfile({
+        ...data,
+        onboarding_status: 'completed'
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      setError('Failed to complete onboarding. Please try again.');
+    }
   };
 
   const handleManualEntryClick = () => {
@@ -92,11 +111,31 @@ const OnboardingPage: React.FC = () => {
 
       <div className="max-w-5xl mx-auto relative z-10">
         <animated.div style={spring} className="text-center mb-10">
+          <div className="flex justify-center items-center space-x-4 mb-6">
+            {[1, 2, 3].map((step) => (
+              <div
+                key={step}
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  step === onboardingStep
+                    ? 'bg-blue-500 text-white'
+                    : step < onboardingStep
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-700 text-gray-400'
+                }`}
+              >
+                {step < onboardingStep ? '✓' : step}
+              </div>
+            ))}
+          </div>
           <h1 className="text-5xl font-bold text-white mb-4 drop-shadow-lg">
             Complete Your <span className="text-blue-400">Profile</span>
           </h1>
           <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-            Upload your resume to automatically populate your profile, or enter your details manually.
+            {onboardingStep === 1
+              ? 'Upload your resume to automatically populate your profile, or enter your details manually.'
+              : onboardingStep === 2
+              ? 'Review and confirm your information.'
+              : 'Set your job preferences and complete your profile.'}
           </p>
         </animated.div>
 

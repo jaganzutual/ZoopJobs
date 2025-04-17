@@ -1,9 +1,10 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 
 # User schemas
 class UserBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     email: Optional[EmailStr] = None
 
 class UserCreate(UserBase):
@@ -18,6 +19,7 @@ class UserResponse(UserBase):
 
 # Profile schemas
 class ProfileBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     location: Optional[str] = None
@@ -45,6 +47,7 @@ class ProfileResponse(ProfileBase):
 
 # Resume schemas
 class EducationBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     institution: Optional[str] = None
     degree: Optional[str] = None
     field_of_study: Optional[str] = None
@@ -53,6 +56,7 @@ class EducationBase(BaseModel):
     description: Optional[str] = None
 
 class WorkExperienceBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     company: Optional[str] = None
     job_title: Optional[str] = None
     start_date: Optional[str] = None
@@ -60,10 +64,12 @@ class WorkExperienceBase(BaseModel):
     description: Optional[str] = None
 
 class SkillBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     name: Optional[str] = None
     category: Optional[str] = None
 
 class ResumeBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     file_name: Optional[str] = None
     parsed_data: Optional[Dict[str, Any]] = None
 
@@ -100,6 +106,7 @@ class UserProfileResumeResponse(UserProfileResponse):
 
 # Resume parsing response
 class ResumeParseResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     personal_info: Dict[str, Any]
     education: List[Dict[str, Any]] = []
     work_experience: List[Dict[str, Any]] = []

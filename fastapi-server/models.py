@@ -43,8 +43,7 @@ class Resume(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    file_name = Column(String, nullable=True)
-    file_path = Column(String, nullable=True)
+    file_path = Column(String)
     parsed_data = Column(JSON, nullable=True)
     
     # Relationships
