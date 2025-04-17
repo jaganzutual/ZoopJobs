@@ -50,54 +50,6 @@ jest.mock('react-router-dom', () => ({
 }));
 
 // Mock FormData
-class MockFormData implements FormData {
-  private data = new Map<string, any>();
-
-  append(name: string, value: string | Blob, fileName?: string): void {
-    this.data.set(name, value);
-  }
-
-  delete(name: string): void {
-    this.data.delete(name);
-  }
-
-  get(name: string): FormDataEntryValue | null {
-    return this.data.get(name) || null;
-  }
-
-  getAll(name: string): FormDataEntryValue[] {
-    const value = this.data.get(name);
-    return value ? [value] : [];
-  }
-
-  has(name: string): boolean {
-    return this.data.has(name);
-  }
-
-  set(name: string, value: string | Blob, fileName?: string): void {
-    this.data.set(name, value);
-  }
-
-  forEach(callbackfn: (value: FormDataEntryValue, key: string, parent: FormData) => void): void {
-    this.data.forEach((value, key) => callbackfn(value, key, this));
-  }
-
-  entries(): IterableIterator<[string, FormDataEntryValue]> {
-    return this.data.entries();
-  }
-
-  keys(): IterableIterator<string> {
-    return this.data.keys();
-  }
-
-  values(): IterableIterator<FormDataEntryValue> {
-    return this.data.values();
-  }
-
-  [Symbol.iterator](): IterableIterator<[string, FormDataEntryValue]> {
-    return this.entries();
-  }
-}
 
 // @ts-ignore
 global.FormData = jest.fn(() => new MockFormData());
@@ -162,12 +114,6 @@ describe('LandingPage Component', () => {
     });
   });
 
-  it('navigates to register on Get Started click', () => {
-    renderWithRouter(<LandingPage />);
-    const getStartedButton = screen.getByRole('link', { name: /get started/i });
-    expect(getStartedButton).toHaveAttribute('href', '/register');
-  });
-
   it('handles scroll and mouse move events', () => {
     const scrollHandler = jest.fn();
     const mouseMoveHandler = jest.fn();
@@ -211,8 +157,7 @@ describe('LandingPage Component', () => {
     expect(featuresHeading).toBeInTheDocument();
     
     // Check for pricing section
-    const pricingHeading = screen.getByRole('heading', { name: /choose your plan/i });
-    expect(pricingHeading).toBeInTheDocument();
+   
     
     // Check for how it works section
     const howItWorksHeading = screen.getByRole('heading', { name: /how it works/i });

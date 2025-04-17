@@ -1,9 +1,6 @@
 import apiService from '../apiService/apiService';
 import { UserProfile } from '../../types/user';
-
-// API endpoints
-const USER_PROFILE_ENDPOINT = '/users/me';
-const USER_UPDATE_PROFILE_ENDPOINT = '/users/profile';
+import { USER_PROFILE_ENDPOINT, USER_UPDATE_PROFILE_ENDPOINT } from '../apiService/apiEndpoints';
 
 /**
  * Get the current user profile with all data

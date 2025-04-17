@@ -1,0 +1,10 @@
+// Resume related endpoints
+export const RESUME_UPLOAD_ENDPOINT = '/resumes/upload';
+export const RESUME_PARSE_ENDPOINT = '/resumes/parse';
+
+// User related endpoints
+export const USER_PROFILE_ENDPOINT = '/users/me';
+export const USER_UPDATE_PROFILE_ENDPOINT = '/users/profile';
+
+// Onboarding related endpoints
+export const ONBOARDING_MANUAL_ENDPOINT = '/onboarding/manual';

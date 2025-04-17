@@ -1,8 +1,5 @@
 import apiService from '../apiService/apiService';
-
-// API endpoints
-const RESUME_UPLOAD_ENDPOINT = '/resumes/upload';
-const RESUME_PARSE_ENDPOINT = '/resumes/parse';
+import { RESUME_UPLOAD_ENDPOINT, RESUME_PARSE_ENDPOINT } from '../apiService/apiEndpoints';
 
 export interface Education {
   institution?: string;
