@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useInView } from 'react-intersection-observer';
 import Logo from '../../assets/images/zoopjobs-logo.svg';
-import { hasCompletedOnboarding, OnboardingStatus } from '../../services/userService/userService';
+import apiService from '../../services/apiService/apiService';
+import { UserProfile } from '../../types/user';
+import { USER_CURRENT_ENDPOINT } from '../../services/apiService/apiEndpoints';
 import OnboardingForm from '../../components/OnboardingForm/OnboardingForm';
 import '../../assets/styles/landing.css';
 
@@ -107,22 +109,30 @@ const LandingPage: React.FC = () => {
 
   // Check onboarding status when component mounts
   useEffect(() => {
-    const checkOnboardingStatus = async () => {
+    const checkUserStatus = async () => {
       try {
-        const status = await hasCompletedOnboarding();
-        if (status === 'completed') {
-          // If onboarding is completed, redirect to dashboard
-          navigate('/dashboard');
-        } else {
-          setIsLoading(false);
+        const userData = await apiService.get<UserProfile>(USER_CURRENT_ENDPOINT);
+        
+        // Navigate based on onboarding status
+        switch (userData.onboarding_status) {
+          case 'completed':
+            navigate('/dashboard');
+            break;
+          case 'partial':
+            navigate('/onboarding');
+            break;
+          case 'not_started':
+          default:
+            setIsLoading(false);
+            break;
         }
       } catch (error) {
-        console.error('Error checking onboarding status:', error);
+        console.error('Error checking user status:', error);
         setIsLoading(false);
       }
     };
 
-    checkOnboardingStatus();
+    checkUserStatus();
   }, [navigate]);
 
   const handleObjectClick = useCallback((objectId: string) => {

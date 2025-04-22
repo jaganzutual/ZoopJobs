@@ -1,17 +1,29 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiService from '../../services/apiService/apiService';
 import Logo from '../../assets/images/zoopjobs-logo.svg';
 import { UserProfile } from '../../types/user';
+import { AxiosError } from 'axios';
+import { USER_CURRENT_ENDPOINT } from '../../services/apiService/apiEndpoints';
 
 const LoadingPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkUserStatus = async () => {
+      const startTime = Date.now();
+      
       try {
-        const response = await axios.get<UserProfile>('/api/users/current');
-        const userData = response.data;
+        const userData = await apiService.get<UserProfile>(USER_CURRENT_ENDPOINT);
+
+        // Calculate remaining time to ensure minimum 2 second delay
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, 1000 - elapsedTime);
+
+        // Wait for remaining time if needed
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
 
         // Navigate based on onboarding status
         switch (userData.onboarding_status) {
@@ -27,7 +39,15 @@ const LoadingPage: React.FC = () => {
             break;
         }
       } catch (error) {
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Calculate remaining time for error case as well
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, 2000 - elapsedTime);
+
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+
+        if (error instanceof AxiosError && error.response?.status === 404) {
           // If user not found, redirect to landing page
           navigate('/landing');
         } else {
@@ -40,7 +60,6 @@ const LoadingPage: React.FC = () => {
 
     checkUserStatus();
   }, [navigate]);
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-indigo-950 flex flex-col items-center justify-center">
       <img src={Logo} alt="ZoopJobs Logo" className="h-16 mb-8 animate-pulse" />

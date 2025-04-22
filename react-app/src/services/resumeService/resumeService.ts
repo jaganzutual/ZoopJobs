@@ -53,10 +53,19 @@ export interface UploadResponse {
  */
 export const uploadResume = async (file: File): Promise<ResumeParseResponse> => {
   try {
+    console.log('[uploadResume] Starting resume upload process');
+    console.log('[uploadResume] File details:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+
     const formData = new FormData();
     formData.append('file', file);
+    console.log('[uploadResume] FormData created and file appended');
 
-    return await apiService.post<ResumeParseResponse>(
+    console.log('[uploadResume] Sending request to:', RESUME_UPLOAD_ENDPOINT);
+    const response = await apiService.post<ResumeParseResponse>(
       RESUME_UPLOAD_ENDPOINT,
       formData,
       {
@@ -65,8 +74,14 @@ export const uploadResume = async (file: File): Promise<ResumeParseResponse> => 
         }
       }
     );
+    console.log('[uploadResume] Upload successful. Response:', response);
+    return response;
   } catch (error) {
-    console.error('Error uploading resume:', error);
+    console.error('[uploadResume] Error uploading resume:', error);
+    console.error('[uploadResume] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 };
@@ -79,14 +94,25 @@ export const uploadResume = async (file: File): Promise<ResumeParseResponse> => 
  */
 export const saveResume = async (fileName: string, parsedData: ResumeParseResponse): Promise<ResumeParseResponse> => {
   try {
+    console.log('[saveResume] Starting resume save process');
+    console.log('[saveResume] Filename:', fileName);
+    console.log('[saveResume] Parsed data summary:', {
+      personalInfo: parsedData.personal_info,
+      educationCount: parsedData.education.length,
+      workExperienceCount: parsedData.work_experience.length,
+      skillsCount: parsedData.skills.length
+    });
+
     const formData = new FormData();
     formData.append('file_name', fileName);
     formData.append('personal_info', JSON.stringify(parsedData.personal_info));
     formData.append('education', JSON.stringify(parsedData.education));
     formData.append('work_experience', JSON.stringify(parsedData.work_experience));
     formData.append('skills', JSON.stringify(parsedData.skills));
+    console.log('[saveResume] FormData created with all fields');
 
-    return await apiService.post<ResumeParseResponse>(
+    console.log('[saveResume] Sending request to:', RESUME_PARSE_ENDPOINT);
+    const response = await apiService.post<ResumeParseResponse>(
       RESUME_PARSE_ENDPOINT,
       formData,
       {
@@ -95,8 +121,14 @@ export const saveResume = async (fileName: string, parsedData: ResumeParseRespon
         }
       }
     );
+    console.log('[saveResume] Save successful. Response:', response);
+    return response;
   } catch (error) {
-    console.error('Error saving resume:', error);
+    console.error('[saveResume] Error saving resume:', error);
+    console.error('[saveResume] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 }; 

@@ -8,27 +8,6 @@ import shutil
 from datetime import datetime
 
 class ResumeRepository:
-    UPLOAD_DIR = "uploads/resumes"
-
-    @staticmethod
-    async def save_resume_file(file: UploadFile, user_id: int) -> str:
-        """Save the uploaded resume file to disk"""
-        # Create upload directory if it doesn't exist
-        os.makedirs(ResumeRepository.UPLOAD_DIR, exist_ok=True)
-        
-        # Generate unique filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        file_extension = os.path.splitext(file.filename)[1]
-        new_filename = f"user_{user_id}_{timestamp}{file_extension}"
-        file_path = os.path.join(ResumeRepository.UPLOAD_DIR, new_filename)
-        
-        # Save the file
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
-        
-        return file_path
-
     @staticmethod
     def save_parsed_resume(db: Session, user_id: int, file_name: str, parsed_data: Dict[str, Any]) -> models.Resume:
         """Save or update parsed resume data"""
@@ -39,21 +18,17 @@ class ResumeRepository:
             # Update existing resume
             db_resume.file_name = file_name
             db_resume.parsed_data = parsed_data
-            
-            # Clean up old relations
-            db.query(models.Education).filter(models.Education.resume_id == db_resume.id).delete()
-            db.query(models.WorkExperience).filter(models.WorkExperience.resume_id == db_resume.id).delete()
-            db.query(models.Skill).filter(models.Skill.resume_id == db_resume.id).delete()
+            db_resume.updated_at = datetime.utcnow()
         else:
             # Create new resume
             db_resume = models.Resume(
                 user_id=user_id,
                 file_name=file_name,
-                parsed_data=parsed_data
+                parsed_data=parsed_data,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow()
             )
             db.add(db_resume)
-            db.commit()
-            db.refresh(db_resume)
         
         # Add education entries
         if "education" in parsed_data and parsed_data["education"]:
@@ -103,13 +78,9 @@ class ResumeRepository:
 
     @staticmethod
     def delete_resume(db: Session, user_id: int) -> bool:
-        """Delete resume and associated file"""
+        """Delete resume"""
         db_resume = ResumeRepository.get_resume(db, user_id)
         if db_resume:
-            # Delete the physical file if it exists
-            if db_resume.file_name and os.path.exists(os.path.join(ResumeRepository.UPLOAD_DIR, db_resume.file_name)):
-                os.remove(os.path.join(ResumeRepository.UPLOAD_DIR, db_resume.file_name))
-            
             # Delete from database
             db.delete(db_resume)
             db.commit()

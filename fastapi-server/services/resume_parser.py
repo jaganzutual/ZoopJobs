@@ -10,9 +10,12 @@ import json
 import logging
 from dotenv import load_dotenv
 from openai import OpenAI
+from sqlalchemy.orm import Session
+from datetime import datetime
 
 from schemas.resume_schemas import ResumeData, ResumeResponse
 from prompts.resume_prompts import ResumeSystemPrompts
+from repository.resume_repository import ResumeRepository
 
 # Configure logging
 logging.basicConfig(
@@ -58,8 +61,10 @@ class Skill(BaseModel):
     category: Optional[str] = Field(None, description="Category of the skill")
 
 class ResumeParser:
-    def __init__(self):
+    def __init__(self, db: Session):
         logger.debug("Initializing ResumeParser...")
+        self.db = db
+        self.resume_repo = ResumeRepository
         
         # Initialize the output parser with ResumeData schema
         self.output_parser = PydanticOutputParser(pydantic_object=ResumeData)
@@ -115,8 +120,8 @@ class ResumeParser:
         else:
             return ""
     
-    def parse_resume(self, resume_text: str) -> ResumeResponse:
-        """Parse resume text using LangChain."""
+    def parse_resume(self, resume_text: str, user_id: int, file_name: str) -> ResumeResponse:
+        """Parse resume text using LangChain and save to database."""
         try:
             # Truncate resume text if it's too long
             max_length = 6000  # Leave room for system prompt and function definitions
@@ -135,17 +140,45 @@ class ResumeParser:
             
             # The response is already in the correct format due to with_structured_output
             parsed_data = response
+
+            # Save to database using repository
+            saved_resume = ResumeRepository.save_parsed_resume(
+                self.db,
+                user_id,
+                file_name,
+                parsed_data.dict()
+            )
             
-            # Return successful response
+            # Transform the saved resume data to match the response schema
+            response_data = {
+                "personal_info": saved_resume.parsed_data.get("personal_info", {}),
+                "education": saved_resume.parsed_data.get("education", []),
+                "work_experience": saved_resume.parsed_data.get("work_experience", []),
+                "skills": saved_resume.parsed_data.get("skills", [])
+            }
+            
+            # Return successful response with the transformed data
             return ResumeResponse(
                 status="success",
-                message="Resume parsed successfully",
-                data=parsed_data,
+                message="Resume parsed and saved successfully",
+                data=response_data,
                 error=None
             )
             
         except Exception as e:
             logger.error(f"Error parsing resume: {e}")
+            # Try to return partial data if available
+            try:
+                if 'parsed_data' in locals():
+                    return ResumeResponse(
+                        status="partial",
+                        message="Resume partially parsed",
+                        data=parsed_data.dict(),
+                        error=str(e)
+                    )
+            except:
+                pass
+                
             return ResumeResponse(
                 status="error",
                 message="Failed to parse resume",
@@ -153,53 +186,37 @@ class ResumeParser:
                 error=str(e)
             )
     
-    async def parse_uploaded_resume(self, file) -> ResumeResponse:
-        """Parse an uploaded resume file."""
+    async def parse_uploaded_resume(self, file, user_id: int) -> ResumeResponse:
+        """Parse an uploaded resume file and save to database."""
         try:
-            logger.debug(f"Processing uploaded resume: {getattr(file, 'filename', file)}")
+            file_name = getattr(file, 'filename', file)
+            logger.debug(f"Processing uploaded resume: {file_name}")
             
-            # Handle both file paths and file objects
-            if isinstance(file, str):
-                if not os.path.exists(file):
-                    logger.error(f"File not found at path: {file}")
-                    raise FileNotFoundError(f"File not found at path: {file}")
-                    
-                logger.debug(f"Found file at path: {file}")
-                temp_file_path = file
-                is_temp_file = False
+            # Extract text directly from the uploaded file
+            file_extension = os.path.splitext(file_name)[1]
+            content = await file.read()
+            
+            # Create a temporary file-like object
+            from io import BytesIO
+            file_obj = BytesIO(content)
+            
+            # Extract text based on file type
+            if file_extension.lower() == ".pdf":
+                reader = PdfReader(file_obj)
+                resume_text = ""
+                for page in reader.pages:
+                    resume_text += page.extract_text() + " "
+            elif file_extension.lower() == ".txt":
+                resume_text = content.decode('utf-8')
             else:
-                # If file is a file object, ensure we're at the beginning
-                await file.seek(0)
-                content = await file.read()
-                if not content:
-                    logger.error("Uploaded file is empty")
-                    raise ValueError("Uploaded file is empty")
-                
-                logger.debug(f"Read file content successfully (size: {len(content)} bytes)")
-                
-                # Create a temporary file
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
-                    temp_file.write(content)
-                    temp_file_path = temp_file.name
-                    logger.debug(f"Saved uploaded file to temporary location: {temp_file_path}")
-                is_temp_file = True
-
-            # Extract text from file
-            file_extension = os.path.splitext(temp_file_path)[1]
-            resume_text = self.extract_text(temp_file_path, file_extension)
+                raise Exception(f"Unsupported file type: {file_extension}")
             
             if not resume_text:
                 raise Exception("Could not extract text from file")
             logger.debug(f"Successfully extracted text from file (length: {len(resume_text)} characters)")
 
-            # Parse the resume text
-            result = self.parse_resume(resume_text)
-
-            # Clean up temporary file if needed
-            if is_temp_file:
-                logger.debug("Cleaning up temporary files...")
-                os.unlink(temp_file_path)
-                logger.debug("Cleaned up temporary files")
+            # Parse the resume text and save to database
+            result = self.parse_resume(resume_text, user_id, file_name)
 
             return result
 

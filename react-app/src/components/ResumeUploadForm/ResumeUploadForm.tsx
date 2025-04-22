@@ -45,9 +45,9 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded,
       setIsUploading(false);
 
       // Save the parsed data
-      setIsSaving(true);
-      await saveResume(file.name, parsedData);
-      setIsSaving(false);
+      // setIsSaving(true);
+      // await saveResume(file.name, parsedData);
+      // setIsSaving(false);
 
       onResumeDataLoaded(parsedData);
     } catch (error) {
