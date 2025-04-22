@@ -30,14 +30,14 @@ class ResumeRepository:
         return file_path
 
     @staticmethod
-    def save_parsed_resume(db: Session, user_id: int, file_path: str, parsed_data: Dict[str, Any]) -> models.Resume:
+    def save_parsed_resume(db: Session, user_id: int, file_name: str, parsed_data: Dict[str, Any]) -> models.Resume:
         """Save or update parsed resume data"""
         # Check if resume exists
         db_resume = db.query(models.Resume).filter(models.Resume.user_id == user_id).first()
         
         if db_resume:
             # Update existing resume
-            db_resume.file_path = file_path
+            db_resume.file_name = file_name
             db_resume.parsed_data = parsed_data
             
             # Clean up old relations
@@ -48,7 +48,7 @@ class ResumeRepository:
             # Create new resume
             db_resume = models.Resume(
                 user_id=user_id,
-                file_path=file_path,
+                file_name=file_name,
                 parsed_data=parsed_data
             )
             db.add(db_resume)
@@ -106,9 +106,9 @@ class ResumeRepository:
         """Delete resume and associated file"""
         db_resume = ResumeRepository.get_resume(db, user_id)
         if db_resume:
-            # Delete the physical file
-            if os.path.exists(db_resume.file_path):
-                os.remove(db_resume.file_path)
+            # Delete the physical file if it exists
+            if db_resume.file_name and os.path.exists(os.path.join(ResumeRepository.UPLOAD_DIR, db_resume.file_name)):
+                os.remove(os.path.join(ResumeRepository.UPLOAD_DIR, db_resume.file_name))
             
             # Delete from database
             db.delete(db_resume)

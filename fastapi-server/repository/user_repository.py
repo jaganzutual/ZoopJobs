@@ -1,21 +1,22 @@
 from sqlalchemy.orm import Session
-import models
-import schemas
-from typing import Optional, List, Dict, Any
-from enum import Enum
+import sys
+import os
 
-class OnboardingStatus(str, Enum):
-    NOT_STARTED = "not_started"
-    PARTIAL = "partial"
-    COMPLETED = "completed"
+
+
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from models import User, Profile, Resume, Education, WorkExperience, Skill
+from schemas.user_schemas import UserCreate, ProfileCreate, OnboardingStatus
+from typing import Optional, List, Dict, Any
 
 class UserRepository:
     @staticmethod
-    def create_user(db: Session, user: schemas.UserCreate) -> models.User:
+    def create_user(db: Session, user: UserCreate) -> User:
         """Create a new user"""
-        db_user = models.User(
+        db_user = User(
             email=user.email,
-            onboarding_status=OnboardingStatus.NOT_STARTED
+            onboarding_status=OnboardingStatus.NOT_STARTED.value
         )
         db.add(db_user)
         db.commit()
@@ -23,30 +24,32 @@ class UserRepository:
         return db_user
     
     @staticmethod
-    def get_user(db: Session, user_id: int) -> Optional[models.User]:
+    def get_user(db: Session, user_id: int) -> Optional[User]:
         """Get user by ID"""
-        return db.query(models.User).filter(models.User.id == user_id).first()
+        return db.query(User).filter(User.id == user_id).first()
     
     @staticmethod
-    def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
+    def get_user_by_email(db: Session, email: str) -> Optional[User]:
         """Get user by email"""
-        return db.query(models.User).filter(models.User.email == email).first()
+        return db.query(User).filter(User.email == email).first()
     
     @staticmethod
-    def create_user_profile(db: Session, profile: schemas.ProfileCreate, user_id: int) -> models.Profile:
+    def create_user_profile(db: Session, profile: ProfileCreate, user_id: int) -> Profile:
         """Create or update user profile"""
         # Check if profile exists
-        db_profile = db.query(models.Profile).filter(models.Profile.user_id == user_id).first()
+        db_profile = db.query(Profile).filter(Profile.user_id == user_id).first()
         
         if db_profile:
             # Update existing profile
-            for field, value in profile.dict(exclude_unset=True).items():
+            profile_data = profile.model_dump(exclude_unset=True)
+            for field, value in profile_data.items():
                 setattr(db_profile, field, value)
         else:
             # Create new profile
-            db_profile = models.Profile(
+            profile_data = profile.model_dump(exclude_unset=True)
+            db_profile = Profile(
                 user_id=user_id,
-                **profile.dict(exclude_unset=True)
+                **profile_data
             )
             db.add(db_profile)
         
@@ -55,10 +58,10 @@ class UserRepository:
         return db_profile
     
     @staticmethod
-    def save_resume(db: Session, user_id: int, file_name: str, parsed_data: Dict[str, Any]) -> models.Resume:
+    def save_resume(db: Session, user_id: int, file_name: str, parsed_data: Dict[str, Any]) -> Resume:
         """Save or update resume data"""
         # Check if resume exists
-        db_resume = db.query(models.Resume).filter(models.Resume.user_id == user_id).first()
+        db_resume = db.query(Resume).filter(Resume.user_id == user_id).first()
         
         if db_resume:
             # Update existing resume
@@ -66,12 +69,12 @@ class UserRepository:
             db_resume.parsed_data = parsed_data
             
             # Clean up old relations
-            db.query(models.Education).filter(models.Education.resume_id == db_resume.id).delete()
-            db.query(models.WorkExperience).filter(models.WorkExperience.resume_id == db_resume.id).delete()
-            db.query(models.Skill).filter(models.Skill.resume_id == db_resume.id).delete()
+            db.query(Education).filter(Education.resume_id == db_resume.id).delete()
+            db.query(WorkExperience).filter(WorkExperience.resume_id == db_resume.id).delete()
+            db.query(Skill).filter(Skill.resume_id == db_resume.id).delete()
         else:
             # Create new resume
-            db_resume = models.Resume(
+            db_resume = Resume(
                 user_id=user_id,
                 file_name=file_name,
                 parsed_data=parsed_data
@@ -83,7 +86,7 @@ class UserRepository:
         # Add education entries
         if "education" in parsed_data and parsed_data["education"]:
             for edu in parsed_data["education"]:
-                db_edu = models.Education(
+                db_edu = Education(
                     resume_id=db_resume.id,
                     institution=edu.get("institution", ""),
                     degree=edu.get("degree", ""),
@@ -97,7 +100,7 @@ class UserRepository:
         # Add work experience entries
         if "work_experience" in parsed_data and parsed_data["work_experience"]:
             for exp in parsed_data["work_experience"]:
-                db_exp = models.WorkExperience(
+                db_exp = WorkExperience(
                     resume_id=db_resume.id,
                     company=exp.get("company", ""),
                     job_title=exp.get("job_title", ""),
@@ -110,7 +113,7 @@ class UserRepository:
         # Add skills
         if "skills" in parsed_data and parsed_data["skills"]:
             for skill in parsed_data["skills"]:
-                db_skill = models.Skill(
+                db_skill = Skill(
                     resume_id=db_resume.id,
                     name=skill.get("name", ""),
                     category=skill.get("category", "")
@@ -122,16 +125,16 @@ class UserRepository:
         return db_resume
     
     @staticmethod
-    def get_user_with_profile_and_resume(db: Session, user_id: int) -> Optional[models.User]:
+    def get_user_with_profile_and_resume(db: Session, user_id: int) -> Optional[User]:
         """Get user with profile and resume data"""
-        return db.query(models.User).filter(models.User.id == user_id).first()
+        return db.query(User).filter(User.id == user_id).first()
     
     @staticmethod
-    def update_onboarding_status(db: Session, user_id: int, status: OnboardingStatus) -> models.User:
+    def update_onboarding_status(db: Session, user_id: int, status: OnboardingStatus) -> User:
         """Update user's onboarding status"""
-        db_user = db.query(models.User).filter(models.User.id == user_id).first()
+        db_user = db.query(User).filter(User.id == user_id).first()
         if db_user:
-            db_user.onboarding_status = status
+            db_user.onboarding_status = status.value
             db.commit()
             db.refresh(db_user)
         return db_user 

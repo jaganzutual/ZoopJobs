@@ -29,6 +29,7 @@ async def upload_resume(
         
         # Parse the resume
         resume_parser = ResumeParser()
+        print("Parsing resume...")
         parsed_data = await resume_parser.parse_uploaded_resume(file)
         print("Resume parsed successfully")
         
@@ -41,25 +42,17 @@ async def upload_resume(
 @router.post("/save", response_model=schemas.ResumeResponse)
 async def save_parsed_resume(
     file_name: str = Form(...),
-    personal_info: str = Form(...),
-    education: str = Form("[]"),
-    work_experience: str = Form("[]"),
-    skills: str = Form("[]"),
+    parsed_data: str = Form(...),
     user_id: int = 1,
     db: Session = Depends(get_db)
 ):
     """Save parsed resume data"""
     try:
         # Parse JSON data
-        parsed_data = {
-            "personal_info": json.loads(personal_info),
-            "education": json.loads(education),
-            "work_experience": json.loads(work_experience),
-            "skills": json.loads(skills)
-        }
+        parsed_data_dict = json.loads(parsed_data)
         
         # Save resume data
-        resume = ResumeRepository.save_parsed_resume(db, user_id, file_name, parsed_data)
+        resume = ResumeRepository.save_parsed_resume(db, user_id, file_name, parsed_data_dict)
         print(f"Resume data saved for user {user_id}")
         
         return resume
