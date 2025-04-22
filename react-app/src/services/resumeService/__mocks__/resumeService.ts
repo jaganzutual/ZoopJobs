@@ -21,7 +21,7 @@ export interface ResumeParseResponse {
   }>;
 }
 
-export const parseResume = jest.fn().mockResolvedValue({
+const mockResponse: ResumeParseResponse = {
   personal_info: {
     name: 'John Doe',
     email: 'john@example.com',
@@ -42,4 +42,11 @@ export const parseResume = jest.fn().mockResolvedValue({
     start_date: '2016',
     end_date: '2020'
   }]
+};
+
+export const uploadResume = jest.fn().mockResolvedValue(mockResponse);
+export const saveResume = jest.fn().mockResolvedValue({
+  id: 1,
+  file_name: 'resume.pdf',
+  parsed_data: mockResponse
 }); 

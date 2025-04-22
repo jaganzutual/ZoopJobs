@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import apiService from '../../services/apiService/apiService';
+import { ONBOARDING_MANUAL_ENDPOINT } from '../../services/apiService/apiEndpoints';
 
 interface ManualEntryFormProps {
   onComplete: (data: any) => void;
@@ -24,8 +25,6 @@ interface FormData {
   preferences: Record<string, any>;
   culture: Record<string, any>;
 }
-
-const ONBOARDING_MANUAL_ENDPOINT = '/onboarding/manual';
 
 const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, onBackToResume }) => {
   const [formData, setFormData] = useState<FormData>({

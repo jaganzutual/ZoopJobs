@@ -1,14 +1,17 @@
+export type OnboardingStatus = 'not_started' | 'partial' | 'completed';
+
 export interface UserProfile {
-  id: string;
+  id: number;
   email: string;
-  profile?: {
-    first_name?: string;
-    last_name?: string;
-    phone?: string;
-    location?: string;
-    linkedin?: string;
-    website?: string;
-  };
+  first_name?: string;
+  last_name?: string;
+  onboarding_status: OnboardingStatus;
   created_at: string;
   updated_at: string;
+  profile?: {
+    location?: string;
+    job_title?: string;
+    bio?: string;
+    skills?: string[];
+  };
 } 

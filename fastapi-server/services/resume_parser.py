@@ -1,55 +1,94 @@
 import os
-from typing import Dict, Any, List
-import openai
+from typing import Dict, Any, List, Optional
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field, ConfigDict
 from pypdf import PdfReader
 import tempfile
 import json
-import os
+import logging
 from dotenv import load_dotenv
-from unittest.mock import MagicMock
+from openai import OpenAI
+from sqlalchemy.orm import Session
+from datetime import datetime
+
+from schemas.resume_schemas import ResumeData, ResumeResponse
+from prompts.resume_prompts import ResumeSystemPrompts
+from repository.resume_repository import ResumeRepository
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-class MockOpenAIClient:
-    """A mock OpenAI client for testing purposes"""
-    def __init__(self, mock_response=None):
-        self.mock_response = mock_response or {
-            "personal_info": {},
-            "education": [],
-            "work_experience": [],
-            "skills": []
-        }
-        self.chat = MagicMock()
-        self.chat.completions = MagicMock()
-        self.chat.completions.create = self._mock_create
-    
-    def _mock_create(self, model=None, temperature=None, messages=None, response_format=None):
-        """Mock the create method to return a predefined response"""
-        class MockMessage:
-            def __init__(self, content):
-                self.content = content
-        
-        class MockChoice:
-            def __init__(self, message):
-                self.message = message
-        
-        class MockResponse:
-            def __init__(self, choices):
-                self.choices = choices
-        
-        # Create a mock message with the JSON response
-        message = MockMessage(json.dumps(self.mock_response))
-        choice = MockChoice(message)
-        return MockResponse([choice])
+class PersonalInfo(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    name: Optional[str] = Field(None, description="Full name of the person")
+    email: Optional[str] = Field(None, description="Email address")
+    phone: Optional[str] = Field(None, description="Phone number")
+    location: Optional[str] = Field(None, description="Location/address")
+    linkedin: Optional[str] = Field(None, description="LinkedIn profile URL")
+    website: Optional[str] = Field(None, description="Personal website URL")
+    summary: Optional[str] = Field(None, description="Professional summary")
+
+class Education(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    institution: Optional[str] = Field(None, description="Name of the educational institution")
+    degree: Optional[str] = Field(None, description="Degree obtained")
+    field_of_study: Optional[str] = Field(None, description="Field of study/major")
+    start_date: Optional[str] = Field(None, description="Start date of education")
+    end_date: Optional[str] = Field(None, description="End date of education")
+    description: Optional[str] = Field(None, description="Description of education")
+
+class WorkExperience(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    company: Optional[str] = Field(None, description="Company name")
+    job_title: Optional[str] = Field(None, description="Job title/position")
+    start_date: Optional[str] = Field(None, description="Start date of work")
+    end_date: Optional[str] = Field(None, description="End date of work")
+    description: Optional[str] = Field(None, description="Job description and responsibilities")
+
+class Skill(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    name: str = Field(..., description="Name of the skill")
+    category: Optional[str] = Field(None, description="Category of the skill")
 
 class ResumeParser:
-    def __init__(self, mock_client=None):
-        if mock_client:
-            self.client = mock_client
-        else:
-            self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    def __init__(self, db: Session):
+        logger.debug("Initializing ResumeParser...")
+        self.db = db
+        self.resume_repo = ResumeRepository
+        
+        # Initialize the output parser with ResumeData schema
+        self.output_parser = PydanticOutputParser(pydantic_object=ResumeData)
+        
+        # Initialize the LLM with optimized configuration
+        self.llm = ChatOpenAI(
+            model="gpt-3.5-turbo-0125",  # Using GPT-3.5-turbo which has better token efficiency
+            temperature=0.3,  # Lower temperature for more consistent output
+            max_tokens=4000,  # Reduced max tokens
+            timeout=30,  # Added timeout
+            max_retries=3,  # Increased retries
+            api_key=OPENAI_API_KEY
+        ).with_structured_output(ResumeData, method="function_calling")
+        
+        logger.debug("Initialized OpenAI client")
+        
+        # Get system prompt from the prompts file
+        system_prompt = ResumeSystemPrompts.get_resume_parser_prompt()
+        
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("human", "{resume_text}")
+        ])
+        logger.debug("Initialized prompt template")
     
     def _extract_text_from_pdf(self, file_path: str) -> str:
         """Extract text from PDF file."""
@@ -60,7 +99,7 @@ class ResumeParser:
                 text += page.extract_text() + " "
             return text
         except Exception as e:
-            print(f"Error extracting text from PDF: {e}")
+            logger.error(f"Error extracting text from PDF: {e}")
             return ""
     
     def _extract_text_from_txt(self, file_path: str) -> str:
@@ -69,7 +108,7 @@ class ResumeParser:
             with open(file_path, 'r', encoding='utf-8') as file:
                 return file.read()
         except Exception as e:
-            print(f"Error extracting text from text file: {e}")
+            logger.error(f"Error extracting text from text file: {e}")
             return ""
     
     def extract_text(self, file_path: str, file_extension: str) -> str:
@@ -81,114 +120,111 @@ class ResumeParser:
         else:
             return ""
     
-    def parse_resume(self, resume_text: str) -> Dict[str, Any]:
-        """Parse resume text using OpenAI."""
-        system_prompt = """
-        You are an expert resume parser. Extract the following information from the resume text:
-        
-        1. Personal Information (name, email, phone, location)
-        2. Education History (institution, degree, field of study, dates)
-        3. Work Experience (company, job title, dates, responsibilities)
-        4. Skills (technical skills, soft skills, tools)
-        
-        Return the extracted information as a valid JSON with the following structure:
-        {
-            "personal_info": {
-                "name": "",
-                "email": "",
-                "phone": "",
-                "location": "",
-                "linkedin": "",
-                "website": "",
-                "summary": ""
-            },
-            "education": [
-                {
-                    "institution": "",
-                    "degree": "",
-                    "field_of_study": "",
-                    "start_date": "",
-                    "end_date": "",
-                    "description": ""
-                }
-            ],
-            "work_experience": [
-                {
-                    "company": "",
-                    "job_title": "",
-                    "start_date": "",
-                    "end_date": "",
-                    "description": ""
-                }
-            ],
-            "skills": [
-                {
-                    "name": "",
-                    "category": ""
-                }
-            ]
-        }
-        
-        Ensure this is valid JSON format with no trailing commas. Use empty strings for missing information.
-        """
-        
+    def parse_resume(self, resume_text: str, user_id: int, file_name: str) -> ResumeResponse:
+        """Parse resume text using LangChain and save to database."""
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4",
-                temperature=0,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": resume_text}
-                ],
-                response_format={"type": "json_object"}
+            # Truncate resume text if it's too long
+            max_length = 6000  # Leave room for system prompt and function definitions
+            if len(resume_text) > max_length:
+                resume_text = resume_text[:max_length] + "..."
+                logger.warning("Resume text was truncated to fit token limits")
+            
+            # Format the prompt with the resume text
+            formatted_prompt = self.prompt.format_messages(
+                resume_text=resume_text
             )
             
-            result = response.choices[0].message.content
-            parsed_data = json.loads(result.strip())
-            return parsed_data
-        except Exception as e:
-            print(f"Error parsing resume: {e}")
-            return {
-                "personal_info": {},
-                "education": [],
-                "work_experience": [],
-                "skills": []
+            # Get response from LLM with structured output
+            response = self.llm.invoke(formatted_prompt)
+            logger.debug(f"Response from LLM: {response}")
+            
+            # The response is already in the correct format due to with_structured_output
+            parsed_data = response
+
+            # Save to database using repository
+            saved_resume = ResumeRepository.save_parsed_resume(
+                self.db,
+                user_id,
+                file_name,
+                parsed_data.dict()
+            )
+            
+            # Transform the saved resume data to match the response schema
+            response_data = {
+                "personal_info": saved_resume.parsed_data.get("personal_info", {}),
+                "education": saved_resume.parsed_data.get("education", []),
+                "work_experience": saved_resume.parsed_data.get("work_experience", []),
+                "skills": saved_resume.parsed_data.get("skills", [])
             }
+            
+            # Return successful response with the transformed data
+            return ResumeResponse(
+                status="success",
+                message="Resume parsed and saved successfully",
+                data=response_data,
+                error=None
+            )
+            
+        except Exception as e:
+            logger.error(f"Error parsing resume: {e}")
+            # Try to return partial data if available
+            try:
+                if 'parsed_data' in locals():
+                    return ResumeResponse(
+                        status="partial",
+                        message="Resume partially parsed",
+                        data=parsed_data.dict(),
+                        error=str(e)
+                    )
+            except:
+                pass
+                
+            return ResumeResponse(
+                status="error",
+                message="Failed to parse resume",
+                data=None,
+                error=str(e)
+            )
     
-    async def parse_uploaded_resume(self, file) -> Dict[str, Any]:
-        """Parse an uploaded resume file."""
+    async def parse_uploaded_resume(self, file, user_id: int) -> ResumeResponse:
+        """Parse an uploaded resume file and save to database."""
         try:
-            # Create a temporary file to store the uploaded resume
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                # Write the uploaded file content to the temporary file
-                temp_file.write(await file.read())
-                temp_file_path = temp_file.name
+            file_name = getattr(file, 'filename', file)
+            logger.debug(f"Processing uploaded resume: {file_name}")
             
-            # Get the file extension
-            file_extension = os.path.splitext(file.filename)[1]
+            # Extract text directly from the uploaded file
+            file_extension = os.path.splitext(file_name)[1]
+            content = await file.read()
             
-            # Extract text from the resume
-            resume_text = self.extract_text(temp_file_path, file_extension)
+            # Create a temporary file-like object
+            from io import BytesIO
+            file_obj = BytesIO(content)
             
-            # Clean up the temporary file
-            os.unlink(temp_file_path)
+            # Extract text based on file type
+            if file_extension.lower() == ".pdf":
+                reader = PdfReader(file_obj)
+                resume_text = ""
+                for page in reader.pages:
+                    resume_text += page.extract_text() + " "
+            elif file_extension.lower() == ".txt":
+                resume_text = content.decode('utf-8')
+            else:
+                raise Exception(f"Unsupported file type: {file_extension}")
             
             if not resume_text:
-                return {
-                    "personal_info": {},
-                    "education": [],
-                    "work_experience": [],
-                    "skills": []
-                }
-            
-            # Parse the resume text
-            return self.parse_resume(resume_text)
-        
+                raise Exception("Could not extract text from file")
+            logger.debug(f"Successfully extracted text from file (length: {len(resume_text)} characters)")
+
+            # Parse the resume text and save to database
+            result = self.parse_resume(resume_text, user_id, file_name)
+
+            return result
+
         except Exception as e:
-            print(f"Error processing uploaded resume: {e}")
-            return {
-                "personal_info": {},
-                "education": [],
-                "work_experience": [],
-                "skills": []
-            } 
+            logger.error(f"Error in parse_uploaded_resume: {str(e)}")
+            return ResumeResponse(
+                status="error",
+                message="Failed to process uploaded resume",
+                data=None,
+                error=str(e)
+            ) 

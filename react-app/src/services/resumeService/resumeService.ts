@@ -1,8 +1,5 @@
 import apiService from '../apiService/apiService';
-
-// API endpoints
-const RESUME_UPLOAD_ENDPOINT = '/resumes/upload';
-const RESUME_PARSE_ENDPOINT = '/resumes/parse';
+import { RESUME_UPLOAD_ENDPOINT, RESUME_PARSE_ENDPOINT } from '../apiService/apiEndpoints';
 
 export interface Education {
   institution?: string;
@@ -24,7 +21,7 @@ export interface WorkExperience {
 export interface Skill {
   name: string;
   category?: string;
-  years: number;
+  years?: number;
 }
 
 export interface PersonalInfo {
@@ -50,47 +47,88 @@ export interface UploadResponse {
 }
 
 /**
- * Upload a resume file
+ * Upload and parse a resume file
  * @param file The resume file to upload
- * @returns The response from the API
+ * @returns The parsed resume data
  */
-export const uploadResume = async (file: File): Promise<UploadResponse> => {
+export const uploadResume = async (file: File): Promise<ResumeParseResponse> => {
   try {
+    console.log('[uploadResume] Starting resume upload process');
+    console.log('[uploadResume] File details:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+
     const formData = new FormData();
     formData.append('file', file);
-    return await apiService.uploadFile(RESUME_UPLOAD_ENDPOINT, formData);
+    console.log('[uploadResume] FormData created and file appended');
+
+    console.log('[uploadResume] Sending request to:', RESUME_UPLOAD_ENDPOINT);
+    const response = await apiService.post<ResumeParseResponse>(
+      RESUME_UPLOAD_ENDPOINT,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    console.log('[uploadResume] Upload successful. Response:', response);
+    return response;
   } catch (error) {
-    console.error('Error uploading resume:', error);
+    console.error('[uploadResume] Error uploading resume:', error);
+    console.error('[uploadResume] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 };
 
 /**
- * Parse a resume file
- * @param fileId The ID of the uploaded resume file
- * @returns The parsed resume data
+ * Save the parsed resume data
+ * @param fileName The name of the uploaded file
+ * @param parsedData The parsed resume data
+ * @returns The saved resume data
  */
-export const parseResume = async (fileId: string): Promise<ResumeParseResponse> => {
+export const saveResume = async (fileName: string, parsedData: ResumeParseResponse): Promise<ResumeParseResponse> => {
   try {
-    // Send the fileId for parsing
-    const parsedData = await apiService.post<ResumeParseResponse>(RESUME_PARSE_ENDPOINT, {
-      fileId
+    console.log('[saveResume] Starting resume save process');
+    console.log('[saveResume] Filename:', fileName);
+    console.log('[saveResume] Parsed data summary:', {
+      personalInfo: parsedData.personal_info,
+      educationCount: parsedData.education.length,
+      workExperienceCount: parsedData.work_experience.length,
+      skillsCount: parsedData.skills.length
     });
-    
-    // Return the parsed data
-    return {
-      personal_info: parsedData.personal_info || {
-        name: '',
-        email: '',
-        phone: '',
-        location: ''
-      },
-      education: parsedData.education || [],
-      work_experience: parsedData.work_experience || [],
-      skills: parsedData.skills || []
-    };
+
+    const formData = new FormData();
+    formData.append('file_name', fileName);
+    formData.append('personal_info', JSON.stringify(parsedData.personal_info));
+    formData.append('education', JSON.stringify(parsedData.education));
+    formData.append('work_experience', JSON.stringify(parsedData.work_experience));
+    formData.append('skills', JSON.stringify(parsedData.skills));
+    console.log('[saveResume] FormData created with all fields');
+
+    console.log('[saveResume] Sending request to:', RESUME_PARSE_ENDPOINT);
+    const response = await apiService.post<ResumeParseResponse>(
+      RESUME_PARSE_ENDPOINT,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    );
+    console.log('[saveResume] Save successful. Response:', response);
+    return response;
   } catch (error) {
-    console.error('Error parsing resume:', error);
+    console.error('[saveResume] Error saving resume:', error);
+    console.error('[saveResume] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     throw error;
   }
 }; 

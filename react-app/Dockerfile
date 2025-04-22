@@ -8,7 +8,7 @@ RUN npm install
 COPY . .
 
 ENV PORT=3028
-ENV REACT_APP_API_URL=http://localhost:8038/api
+ENV REACT_APP_API_URL=http://localhost:8028/api
 EXPOSE 3028
 
 CMD ["npm", "start"] 
