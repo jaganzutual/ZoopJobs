@@ -327,6 +327,47 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
     }
   };
 
+  // Helper function to sort experiences by date
+  const sortExperiences = (experiences: Experience[]) => {
+    return [...experiences].sort((a, b) => {
+      // For currently working positions, use current date for comparison
+      const aEndDate = a.currentlyWorking 
+        ? new Date().getTime() 
+        : new Date(`${a.endMonth} ${a.endYear}`).getTime();
+      const bEndDate = b.currentlyWorking 
+        ? new Date().getTime() 
+        : new Date(`${b.endMonth} ${b.endYear}`).getTime();
+      
+      // Sort by end date first (most recent first)
+      if (aEndDate !== bEndDate) {
+        return bEndDate - aEndDate;
+      }
+      
+      // If end dates are same, sort by start date
+      const aStartDate = new Date(`${a.startMonth} ${a.startYear}`).getTime();
+      const bStartDate = new Date(`${b.startMonth} ${b.startYear}`).getTime();
+      return bStartDate - aStartDate;
+    });
+  };
+
+  // Helper function to sort education entries
+  const sortEducation = (education: Education[]) => {
+    return [...education].sort((a, b) => {
+      // Sort by end year (most recent first)
+      const aEndYear = parseInt(a.endYear);
+      const bEndYear = parseInt(b.endYear);
+      
+      if (aEndYear !== bEndYear) {
+        return bEndYear - aEndYear;
+      }
+      
+      // If end years are same, sort by start year
+      const aStartYear = parseInt(a.startYear);
+      const bStartYear = parseInt(b.startYear);
+      return bStartYear - aStartYear;
+    });
+  };
+
   const renderProfileSection = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -543,17 +584,26 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
 
   const renderExperienceSection = () => (
     <div className="space-y-8">
-      {formData.experience.map((exp, index) => (
+      {sortExperiences(formData.experience).map((exp, index) => (
         <div key={index} className="space-y-6 border border-slate-700 rounded-lg p-6 relative">
+          {/* Add a badge to show "Current" for currently working positions */}
+          {exp.currentlyWorking && (
+            <div className="absolute top-4 right-16 bg-blue-500 text-white text-sm px-2 py-1 rounded">
+              Current
+            </div>
+          )}
           {formData.experience.length > 1 && (
             <button
               type="button"
               onClick={() => removeExperience(index)}
-              className="absolute top-4 right-4 text-red-400 hover:text-red-300"
+              className="absolute top-4 right-4 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors duration-200 group"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-red-400 group-hover:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span className="text-sm font-medium text-red-400 group-hover:text-red-300">Remove</span>
+              </div>
             </button>
           )}
 
@@ -696,8 +746,14 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
 
   const renderEducationSection = () => (
     <div className="space-y-8">
-      {formData.education.map((edu, index) => (
+      {sortEducation(formData.education).map((edu, index) => (
         <div key={index} className="space-y-6 border border-slate-700 rounded-lg p-6 relative">
+          {/* Add a badge to show "Current" if end year matches current year */}
+          {edu.endYear === new Date().getFullYear().toString() && (
+            <div className="absolute top-4 right-16 bg-blue-500 text-white text-sm px-2 py-1 rounded">
+              Current
+            </div>
+          )}
           {formData.education.length > 1 && (
             <button
               type="button"
@@ -874,12 +930,11 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
     setFormData({
       ...formData,
       experience: [
-        ...formData.experience,
         {
           title: '',
           employmentType: 'Full-time',
           company: '',
-          currentlyWorking: false,
+          currentlyWorking: true, // Default to current position
           startMonth: '',
           startYear: '',
           endMonth: '',
@@ -887,7 +942,8 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
           location: '',
           locationType: 'Hybrid',
           description: ''
-        }
+        },
+        ...formData.experience
       ]
     });
   };
@@ -918,16 +974,16 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
     setFormData(prev => ({
       ...prev,
       education: [
-        ...prev.education,
         {
           school: '',
           degree: '',
           fieldOfStudy: '',
           startYear: '',
-          endYear: '',
+          endYear: new Date().getFullYear().toString(), // Default to current year
           grade: '',
           activities: ''
-        }
+        },
+        ...prev.education
       ]
     }));
   };
@@ -942,25 +998,25 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   return (
     <animated.form onSubmit={handleSubmit} style={spring} className="space-y-8">
       {/* Profile Section */}
-      <div className="space-y-6">
+      <div className="space-y-6 bg-slate-800/50 border border-slate-700/50 rounded-lg p-6 shadow-lg">
         <h3 className="text-xl font-semibold text-slate-200 mb-4">Personal Information</h3>
         {renderProfileSection()}
       </div>
 
       {/* Experience Section */}
-      <div className="space-y-6">
+      <div className="space-y-6 bg-slate-800/50 border border-slate-700/50 rounded-lg p-6 shadow-lg">
         <h3 className="text-xl font-semibold text-slate-200 mb-4">Work Experience</h3>
         {renderExperienceSection()}
       </div>
 
       {/* Education Section */}
-      <div className="space-y-6">
+      <div className="space-y-6 bg-slate-800/50 border border-slate-700/50 rounded-lg p-6 shadow-lg">
         <h3 className="text-xl font-semibold text-slate-200 mb-4">Education</h3>
         {renderEducationSection()}
       </div>
 
       {/* Skills Section */}
-      <div className="space-y-6">
+      <div className="space-y-6 bg-slate-800/50 border border-slate-700/50 rounded-lg p-6 shadow-lg">
         <h3 className="text-xl font-semibold text-slate-200 mb-4">Skills</h3>
         {renderSkillsSection()}
       </div>
