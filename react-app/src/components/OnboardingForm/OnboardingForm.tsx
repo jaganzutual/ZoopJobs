@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import { ResumeParseResponse } from '../../services/resumeService/resumeService';
 
@@ -42,6 +42,7 @@ interface OnboardingFormProps {
 
 const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData }) => {
   const [step, setStep] = useState(1);
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [formData, setFormData] = useState<FormData>({
     name: '',
     location: '',
@@ -67,6 +68,24 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
     }
   });
 
+  const errorRefs = {
+    skills: useRef<HTMLDivElement>(null),
+    education: useRef<HTMLDivElement>(null),
+    about: useRef<HTMLDivElement>(null),
+    jobPreferences: useRef<HTMLDivElement>(null)
+  };
+
+  useEffect(() => {
+    // Scroll to first error when errors are set
+    if (Object.keys(errors).length > 0) {
+      const firstErrorKey = Object.keys(errors)[0];
+      const ref = errorRefs[firstErrorKey as keyof typeof errorRefs];
+      if (ref?.current) {
+        ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [errors]);
+
   // Update form data when resume data is loaded
   React.useEffect(() => {
     if (initialData) {
@@ -87,7 +106,6 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
     }
   }, [initialData]);
 
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [spring, api] = useSpring(() => ({
     from: { opacity: 0, y: 20 },
     to: { opacity: 1, y: 0 }
@@ -209,14 +227,16 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
               Skills & Experience
             </h3>
             <div className="space-y-5">
-              <div>
-                <label className="block text-slate-200 mb-2 font-medium">Skills (comma separated)</label>
+              <div ref={errorRefs.skills}>
+                <label className="block text-slate-200 mb-2 font-medium">
+                  Skills (comma separated) <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="text"
                   name="skills"
                   value={formData.skills.join(', ')}
                   onChange={(e) => {
-                    const skills = e.target.value.split(',').map(skill => skill.trim());
+                    const skills = e.target.value.split(',').map(skill => skill.trim()).filter(Boolean);
                     setFormData(prev => ({ ...prev, skills }));
                     if (errors.skills) {
                       setErrors(prev => ({ ...prev, skills: undefined }));
@@ -229,8 +249,10 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
                 />
                 {errors.skills && <p className="text-red-400 text-sm mt-1">{errors.skills}</p>}
               </div>
-              <div>
-                <label className="block text-slate-200 mb-2 font-medium">Education</label>
+              <div ref={errorRefs.education}>
+                <label className="block text-slate-200 mb-2 font-medium">
+                  Education <span className="text-red-400">*</span>
+                </label>
                 <textarea
                   name="education"
                   value={formData.education}
@@ -239,13 +261,14 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
                     errors.education ? 'border-red-500' : 'border-slate-600'
                   } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
                   rows={3}
-                  required
                   placeholder="Your educational background"
                 />
                 {errors.education && <p className="text-red-400 text-sm mt-1">{errors.education}</p>}
               </div>
-              <div>
-                <label className="block text-slate-200 mb-2 font-medium">About You</label>
+              <div ref={errorRefs.about}>
+                <label className="block text-slate-200 mb-2 font-medium">
+                  About You <span className="text-red-400">*</span>
+                </label>
                 <textarea
                   name="about"
                   value={formData.about}
@@ -254,7 +277,6 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
                     errors.about ? 'border-red-500' : 'border-slate-600'
                   } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
                   rows={4}
-                  required
                   placeholder="Tell us about yourself, your background, and what you're looking for"
                 />
                 {errors.about && <p className="text-red-400 text-sm mt-1">{errors.about}</p>}
@@ -307,9 +329,11 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
               </svg>
               Job Preferences
             </h3>
-            <div className="space-y-5">
+            <div className="space-y-5" ref={errorRefs.jobPreferences}>
               <div>
-                <label className="block text-slate-200 mb-2 font-medium">Desired Role</label>
+                <label className="block text-slate-200 mb-2 font-medium">
+                  Desired Role <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="text"
                   name="jobPreferences.role"
@@ -318,7 +342,6 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
                   className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
                     errors.jobPreferences ? 'border-red-500' : 'border-slate-600'
                   } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
-                  required
                   placeholder="e.g. Frontend Developer, UX Designer"
                 />
                 {errors.jobPreferences && <p className="text-red-400 text-sm mt-1">{errors.jobPreferences}</p>}
@@ -326,7 +349,9 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-slate-200 mb-2 font-medium">Desired Salary</label>
+                  <label className="block text-slate-200 mb-2 font-medium">
+                    Desired Salary <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
                     name="jobPreferences.salary"
@@ -335,12 +360,13 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
                     className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
                       errors.jobPreferences ? 'border-red-500' : 'border-slate-600'
                     } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
-                    required
                     placeholder="e.g. $80,000 - $100,000"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-200 mb-2 font-medium">Remote Work Preference</label>
+                  <label className="block text-slate-200 mb-2 font-medium">
+                    Remote Work Preference <span className="text-red-400">*</span>
+                  </label>
                   <select
                     name="jobPreferences.remote"
                     value={formData.jobPreferences.remote}
@@ -348,7 +374,6 @@ const OnboardingForm: React.FC<OnboardingFormProps> = ({ onComplete, initialData
                     className={`w-full px-4 py-3 rounded-lg bg-slate-800/40 border ${
                       errors.jobPreferences ? 'border-red-500' : 'border-slate-600'
                     } text-white focus:outline-none focus:border-blue-400 transition-colors duration-200`}
-                    required
                   >
                     <option value="">Select preference</option>
                     <option value="remote">Remote Only</option>

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { uploadResume, saveResume, ResumeParseResponse } from '../../services/resumeService/resumeService';
 
 interface ResumeUploadFormProps {
-  onResumeDataLoaded: (data: ResumeParseResponse) => void;
+  onResumeDataLoaded: (data: ResumeParseResponse, file: File) => void;
   onError: (error: string) => void;
 }
 
@@ -41,18 +41,18 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded,
 
     try {
       setIsUploading(true);
+      console.log('[ResumeUploadForm] Starting resume upload with file:', file.name);
+      
       const parsedData = await uploadResume(file);
       setIsUploading(false);
+      
+      console.log('[ResumeUploadForm] Resume parsed successfully, passing data to parent');
 
-      // Save the parsed data
-      // setIsSaving(true);
-      // await saveResume(file.name, parsedData);
-      // setIsSaving(false);
-
-      onResumeDataLoaded(parsedData);
+      // Pass both parsed data and the file to parent component
+      onResumeDataLoaded(parsedData, file);
     } catch (error) {
       setIsUploading(false);
-      setIsSaving(false);
+      console.error('[ResumeUploadForm] Error during resume upload/parse:', error);
       const errorMsg = 'Error processing resume: ' + (error instanceof Error ? error.message : String(error));
       setErrorMessage(errorMsg);
       onError(errorMsg);
