@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSpring, animated } from '@react-spring/web';
 import apiService from '../../services/apiService/apiService';
 import { ONBOARDING_MANUAL_ENDPOINT } from '../../services/apiService/apiEndpoints';
@@ -36,12 +36,20 @@ interface FormData {
     student: boolean;
     linkedin: string;
     website: string;
+    email: string;
   };
   experience: Experience[];
   education: Education[];
   skills: Skill[];
   preferences: Record<string, any>;
   culture: Record<string, any>;
+}
+
+interface ValidationErrors {
+  personalInfo?: Record<string, boolean>;
+  experience?: Record<string, boolean>[];
+  education?: Record<string, boolean>[];
+  skills?: Record<string, boolean>[];
 }
 
 const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialData, fileName, onSubmit }) => {
@@ -52,7 +60,8 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
       location: '',
       student: false,
       linkedin: '',
-      website: ''
+      website: '',
+      email: ''
     },
     experience: [{
       title: '',
@@ -82,6 +91,12 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+
+  // Add refs for each section
+  const personalInfoRef = useRef<HTMLDivElement>(null);
+  const experienceRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const educationRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const [spring] = useSpring(() => ({
     from: { opacity: 0, y: 20 },
@@ -191,15 +206,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   }, [initialData]);
 
   const handleInputChange = (section: keyof FormData, field: string, value: string | boolean, index: number = 0) => {
-    if (section === 'personalInfo') {
-      setFormData({
-        ...formData,
-        personalInfo: {
-          ...formData.personalInfo,
-          [field]: value
-        }
-      });
-    } else if (section === 'experience') {
+    if (section === 'experience') {
       const updatedExperiences = [...formData.experience];
       
       // Ensure the index exists in the experiences array
@@ -218,40 +225,38 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
           description: ''
         };
       }
-      
-      updatedExperiences[index] = {
-        ...updatedExperiences[index],
-        [field]: value
-      };
+
+      // Special handling for currentlyWorking toggle
+      if (field === 'currentlyWorking') {
+        const currentExperience = updatedExperiences[index];
+        updatedExperiences[index] = {
+          ...currentExperience,
+          currentlyWorking: value as boolean,
+          // Preserve start date fields
+          startMonth: currentExperience.startMonth,
+          startYear: currentExperience.startYear,
+          // Clear end date fields only when setting to currently working
+          endMonth: value ? '' : currentExperience.endMonth,
+          endYear: value ? '' : currentExperience.endYear
+        };
+      } else {
+        updatedExperiences[index] = {
+          ...updatedExperiences[index],
+          [field]: value
+        };
+      }
       
       setFormData({
         ...formData,
         experience: updatedExperiences
       });
-    } else if (section === 'education') {
-      const updatedEducation = [...formData.education];
-      
-      // Ensure the index exists in the education array
-      if (!updatedEducation[index]) {
-        updatedEducation[index] = {
-          school: '',
-          degree: '',
-          fieldOfStudy: '',
-          startYear: '',
-          endYear: '',
-          grade: '',
-          activities: ''
-        };
-      }
-      
-      updatedEducation[index] = {
-        ...updatedEducation[index],
-        [field]: value
-      };
-      
+    } else if (section === 'personalInfo') {
       setFormData({
         ...formData,
-        education: updatedEducation
+        personalInfo: {
+          ...formData.personalInfo,
+          [field]: value
+        }
       });
     } else {
       setFormData({
@@ -276,54 +281,83 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Reset validation errors
+    setValidationErrors({});
+    
     // Validate required fields
-    const requiredFields = {
-      personalInfo: ['firstName', 'lastName', 'email'],
-      experience: ['company', 'title', 'startMonth', 'startYear', 'description'],
-      education: ['school', 'degree', 'fieldOfStudy', 'startYear', 'endYear']
-    };
-
-    let isValid = true;
-    let missingFields: string[] = [];
+    const newValidationErrors: ValidationErrors = {};
 
     // Validate personal info
-    requiredFields.personalInfo.forEach(field => {
-      if (!formData.personalInfo[field as keyof typeof formData.personalInfo]) {
-        isValid = false;
-        missingFields.push(field);
-      }
-    });
+    const personalInfoErrors: Record<string, boolean> = {};
+    if (!formData.personalInfo.firstName) personalInfoErrors.firstName = true;
+    if (!formData.personalInfo.lastName) personalInfoErrors.lastName = true;
+    if (!formData.personalInfo.email) personalInfoErrors.email = true;
+    if (Object.keys(personalInfoErrors).length > 0) {
+      newValidationErrors.personalInfo = personalInfoErrors;
+    }
 
     // Validate experience entries
+    const experienceErrors: Record<string, boolean>[] = [];
     formData.experience.forEach((exp, index) => {
-      requiredFields.experience.forEach(field => {
-        if (!exp[field as keyof Experience]) {
-          isValid = false;
-          missingFields.push(`Experience ${index + 1} - ${field}`);
-        }
-      });
+      const expErrors: Record<string, boolean> = {};
+      if (!exp.company) expErrors.company = true;
+      if (!exp.title) expErrors.title = true;
+      if (!exp.startMonth) expErrors.startMonth = true;
+      if (!exp.startYear) expErrors.startYear = true;
+      if (!exp.description) expErrors.description = true;
+      if (Object.keys(expErrors).length > 0) {
+        experienceErrors[index] = expErrors;
+      }
     });
+    if (experienceErrors.some(err => Object.keys(err).length > 0)) {
+      newValidationErrors.experience = experienceErrors;
+    }
 
     // Validate education entries
+    const educationErrors: Record<string, boolean>[] = [];
     formData.education.forEach((edu, index) => {
-      requiredFields.education.forEach(field => {
-        if (!edu[field as keyof Education]) {
-          isValid = false;
-          missingFields.push(`Education ${index + 1} - ${field}`);
-        }
-      });
+      const eduErrors: Record<string, boolean> = {};
+      if (!edu.school) eduErrors.school = true;
+      if (!edu.degree) eduErrors.degree = true;
+      if (!edu.fieldOfStudy) eduErrors.fieldOfStudy = true;
+      if (!edu.startYear) eduErrors.startYear = true;
+      if (!edu.endYear) eduErrors.endYear = true;
+      if (Object.keys(eduErrors).length > 0) {
+        educationErrors[index] = eduErrors;
+      }
     });
+    if (educationErrors.some(err => Object.keys(err).length > 0)) {
+      newValidationErrors.education = educationErrors;
+    }
 
-    if (!isValid) {
-      alert(`Please fill in all required fields:\n${missingFields.join('\n')}`);
+    setValidationErrors(newValidationErrors);
+
+    // If there are validation errors, scroll to the first error
+    if (Object.keys(newValidationErrors).length > 0) {
+      if (newValidationErrors.personalInfo) {
+        personalInfoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (newValidationErrors.experience) {
+        const firstErrorIndex = newValidationErrors.experience.findIndex(err => Object.keys(err).length > 0);
+        if (firstErrorIndex >= 0) {
+          experienceRefs.current[firstErrorIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else if (newValidationErrors.education) {
+        const firstErrorIndex = newValidationErrors.education.findIndex(err => Object.keys(err).length > 0);
+        if (firstErrorIndex >= 0) {
+          educationRefs.current[firstErrorIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
       return;
     }
 
     try {
+      setIsSubmitting(true);
       await onSubmit(formData);
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('An error occurred while submitting the form. Please try again.');
+      setError('An error occurred while submitting the form. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -331,22 +365,35 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   const sortExperiences = (experiences: Experience[]) => {
     return [...experiences].sort((a, b) => {
       // For currently working positions, use current date for comparison
-      const aEndDate = a.currentlyWorking 
-        ? new Date().getTime() 
-        : new Date(`${a.endMonth} ${a.endYear}`).getTime();
-      const bEndDate = b.currentlyWorking 
-        ? new Date().getTime() 
-        : new Date(`${b.endMonth} ${b.endYear}`).getTime();
+      const aEndYear = a.currentlyWorking ? new Date().getFullYear() : parseInt(a.endYear || '0');
+      const bEndYear = b.currentlyWorking ? new Date().getFullYear() : parseInt(b.endYear || '0');
       
-      // Sort by end date first (most recent first)
-      if (aEndDate !== bEndDate) {
-        return bEndDate - aEndDate;
+      // First compare by end year
+      if (aEndYear !== bEndYear) {
+        return bEndYear - aEndYear;
       }
       
-      // If end dates are same, sort by start date
-      const aStartDate = new Date(`${a.startMonth} ${a.startYear}`).getTime();
-      const bStartDate = new Date(`${b.startMonth} ${b.startYear}`).getTime();
-      return bStartDate - aStartDate;
+      // If end years are same, compare end months
+      const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      const aEndMonth = a.currentlyWorking ? 11 : monthOrder.indexOf(a.endMonth || '');
+      const bEndMonth = b.currentlyWorking ? 11 : monthOrder.indexOf(b.endMonth || '');
+      
+      if (aEndMonth !== bEndMonth) {
+        return bEndMonth - aEndMonth;
+      }
+      
+      // If end dates are same, compare start dates
+      const aStartYear = parseInt(a.startYear || '0');
+      const bStartYear = parseInt(b.startYear || '0');
+      
+      if (aStartYear !== bStartYear) {
+        return bStartYear - aStartYear;
+      }
+      
+      const aStartMonth = monthOrder.indexOf(a.startMonth || '');
+      const bStartMonth = monthOrder.indexOf(b.startMonth || '');
+      return bStartMonth - aStartMonth;
     });
   };
 
@@ -369,27 +416,41 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   };
 
   const renderProfileSection = () => (
-    <div className="space-y-6">
+    <div className="space-y-6" ref={personalInfoRef}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
+          <label className="block text-sm font-medium text-slate-300 mb-1">
+            First Name <span className="text-red-400">*</span>
+          </label>
           <input
             type="text"
             value={formData.personalInfo.firstName}
             onChange={(e) => handleInputChange('personalInfo', 'firstName', e.target.value)}
             placeholder="First Name"
-            className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+              validationErrors.personalInfo?.firstName ? 'border-red-500' : 'border-slate-700'
+            } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
           />
+          {validationErrors.personalInfo?.firstName && (
+            <p className="text-red-400 text-sm mt-1">First name is required</p>
+          )}
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">Last Name</label>
+          <label className="block text-sm font-medium text-slate-300 mb-1">
+            Last Name <span className="text-red-400">*</span>
+          </label>
           <input
             type="text"
             value={formData.personalInfo.lastName}
             onChange={(e) => handleInputChange('personalInfo', 'lastName', e.target.value)}
             placeholder="Last Name"
-            className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+              validationErrors.personalInfo?.lastName ? 'border-red-500' : 'border-slate-700'
+            } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
           />
+          {validationErrors.personalInfo?.lastName && (
+            <p className="text-red-400 text-sm mt-1">Last name is required</p>
+          )}
         </div>
       </div>
 
@@ -585,7 +646,11 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   const renderExperienceSection = () => (
     <div className="space-y-8">
       {sortExperiences(formData.experience).map((exp, index) => (
-        <div key={index} className="space-y-6 border border-slate-700 rounded-lg p-6 relative">
+        <div 
+          key={index} 
+          className="space-y-6 border border-slate-700 rounded-lg p-6 relative"
+          ref={el => experienceRefs.current[index] = el}
+        >
           {/* Add a badge to show "Current" for currently working positions */}
           {exp.currentlyWorking && (
             <div className="absolute top-4 right-16 bg-blue-500 text-white text-sm px-2 py-1 rounded">
@@ -609,14 +674,21 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Job Title</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Job Title <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
                 value={exp.title}
                 onChange={(e) => handleInputChange('experience', 'title', e.target.value, index)}
                 placeholder="E.g. Software Engineer"
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.experience?.[index]?.title ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
+              {validationErrors.experience?.[index]?.title && (
+                <p className="text-red-400 text-sm mt-1">Job title is required</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">Company</label>
@@ -625,29 +697,43 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                 value={exp.company}
                 onChange={(e) => handleInputChange('experience', 'company', e.target.value, index)}
                 placeholder="E.g. Thoughtworks"
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.experience?.[index]?.company ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
+              {validationErrors.experience?.[index]?.company && (
+                <p className="text-red-400 text-sm mt-1">Company name is required</p>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <input
-              type="checkbox"
-              checked={exp.currentlyWorking}
-              onChange={(e) => handleInputChange('experience', 'currentlyWorking', e.target.checked, index)}
-              className="h-4 w-4 text-blue-600 border-slate-700 focus:ring-blue-500"
-            />
-            <label className="text-sm text-slate-300">I am currently working in this role</label>
+          <div className="flex items-center gap-4 mb-4">
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={exp.currentlyWorking}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  handleInputChange('experience', 'currentlyWorking', newValue, index);
+                }}
+                className="h-4 w-4 text-blue-600 border-slate-700 rounded focus:ring-blue-500 cursor-pointer"
+              />
+              <span className="ml-2 text-sm text-slate-300">I am currently working in this role</span>
+            </label>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">Start Date</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                Start Date <span className="text-red-400">*</span>
+              </label>
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={exp.startMonth}
                   onChange={(e) => handleInputChange('experience', 'startMonth', e.target.value, index)}
-                  className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                    validationErrors.experience?.[index]?.startMonth ? 'border-red-500' : 'border-slate-700'
+                  } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 >
                   <option value="">Month</option>
                   {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(month => (
@@ -657,7 +743,9 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                 <select
                   value={exp.startYear}
                   onChange={(e) => handleInputChange('experience', 'startYear', e.target.value, index)}
-                  className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                    validationErrors.experience?.[index]?.startYear ? 'border-red-500' : 'border-slate-700'
+                  } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 >
                   <option value="">Year</option>
                   {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
@@ -665,15 +753,26 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                   ))}
                 </select>
               </div>
+              {validationErrors.experience?.[index]?.startMonth && (
+                <p className="text-red-400 text-sm mt-1">Start month is required</p>
+              )}
+              {validationErrors.experience?.[index]?.startYear && (
+                <p className="text-red-400 text-sm mt-1">Start year is required</p>
+              )}
             </div>
+
             {!exp.currentlyWorking && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">End Date</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  End Date <span className="text-red-400">*</span>
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   <select
                     value={exp.endMonth}
                     onChange={(e) => handleInputChange('experience', 'endMonth', e.target.value, index)}
-                    className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                      validationErrors.experience?.[index]?.endMonth ? 'border-red-500' : 'border-slate-700'
+                    } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
                     <option value="">Month</option>
                     {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(month => (
@@ -683,7 +782,9 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                   <select
                     value={exp.endYear}
                     onChange={(e) => handleInputChange('experience', 'endYear', e.target.value, index)}
-                    className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                      validationErrors.experience?.[index]?.endYear ? 'border-red-500' : 'border-slate-700'
+                    } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
                     <option value="">Year</option>
                     {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
@@ -691,6 +792,12 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                     ))}
                   </select>
                 </div>
+                {validationErrors.experience?.[index]?.endMonth && (
+                  <p className="text-red-400 text-sm mt-1">End month is required</p>
+                )}
+                {validationErrors.experience?.[index]?.endYear && (
+                  <p className="text-red-400 text-sm mt-1">End year is required</p>
+                )}
               </div>
             )}
           </div>
@@ -701,9 +808,14 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
               value={exp.description}
               onChange={(e) => handleInputChange('experience', 'description', e.target.value, index)}
               rows={4}
-              className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                validationErrors.experience?.[index]?.description ? 'border-red-500' : 'border-slate-700'
+              } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               placeholder="Describe your responsibilities and achievements..."
             />
+            {validationErrors.experience?.[index]?.description && (
+              <p className="text-red-400 text-sm mt-1">Description is required</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -714,21 +826,31 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                 value={exp.location}
                 onChange={(e) => handleInputChange('experience', 'location', e.target.value, index)}
                 placeholder="City, State, Country"
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.experience?.[index]?.location ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
+              {validationErrors.experience?.[index]?.location && (
+                <p className="text-red-400 text-sm mt-1">Location is required</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">Location Type</label>
               <select
                 value={exp.locationType}
                 onChange={(e) => handleInputChange('experience', 'locationType', e.target.value, index)}
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.experience?.[index]?.locationType ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
                 <option value="">Select type</option>
                 <option value="On-site">On-site</option>
                 <option value="Hybrid">Hybrid</option>
                 <option value="Remote">Remote</option>
               </select>
+              {validationErrors.experience?.[index]?.locationType && (
+                <p className="text-red-400 text-sm mt-1">Location type is required</p>
+              )}
             </div>
           </div>
         </div>
@@ -747,7 +869,11 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   const renderEducationSection = () => (
     <div className="space-y-8">
       {sortEducation(formData.education).map((edu, index) => (
-        <div key={index} className="space-y-6 border border-slate-700 rounded-lg p-6 relative">
+        <div 
+          key={index} 
+          className="space-y-6 border border-slate-700 rounded-lg p-6 relative"
+          ref={el => educationRefs.current[index] = el}
+        >
           {/* Add a badge to show "Current" if end year matches current year */}
           {edu.endYear === new Date().getFullYear().toString() && (
             <div className="absolute top-4 right-16 bg-blue-500 text-white text-sm px-2 py-1 rounded">
@@ -768,14 +894,21 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1">School/Institution</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1">
+                School/Institution <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
                 value={edu.school}
                 onChange={(e) => handleEducationChange(index, 'school', e.target.value)}
                 placeholder="E.g. Stanford University"
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.education?.[index]?.school ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
+              {validationErrors.education?.[index]?.school && (
+                <p className="text-red-400 text-sm mt-1">School name is required</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">Degree</label>
@@ -784,8 +917,13 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                 value={edu.degree}
                 onChange={(e) => handleEducationChange(index, 'degree', e.target.value)}
                 placeholder="E.g. Bachelor of Science"
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.education?.[index]?.degree ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
+              {validationErrors.education?.[index]?.degree && (
+                <p className="text-red-400 text-sm mt-1">Degree is required</p>
+              )}
             </div>
           </div>
 
@@ -796,8 +934,13 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
               value={edu.fieldOfStudy}
               onChange={(e) => handleEducationChange(index, 'fieldOfStudy', e.target.value)}
               placeholder="E.g. Computer Science"
-              className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                validationErrors.education?.[index]?.fieldOfStudy ? 'border-red-500' : 'border-slate-700'
+              } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
             />
+            {validationErrors.education?.[index]?.fieldOfStudy && (
+              <p className="text-red-400 text-sm mt-1">Field of study is required</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -806,26 +949,36 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
               <select
                 value={edu.startYear}
                 onChange={(e) => handleEducationChange(index, 'startYear', e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.education?.[index]?.startYear ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
                 <option value="">Select Year</option>
                 {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
                   <option key={year} value={year.toString()}>{year}</option>
                 ))}
               </select>
+              {validationErrors.education?.[index]?.startYear && (
+                <p className="text-red-400 text-sm mt-1">Start year is required</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">End Year</label>
               <select
                 value={edu.endYear}
                 onChange={(e) => handleEducationChange(index, 'endYear', e.target.value)}
-                className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.education?.[index]?.endYear ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
                 <option value="">Select Year</option>
                 {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
                   <option key={year} value={year.toString()}>{year}</option>
                 ))}
               </select>
+              {validationErrors.education?.[index]?.endYear && (
+                <p className="text-red-400 text-sm mt-1">End year is required</p>
+              )}
             </div>
           </div>
 
@@ -836,8 +989,13 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
               value={edu.grade}
               onChange={(e) => handleEducationChange(index, 'grade', e.target.value)}
               placeholder="E.g. 3.8/4.0"
-              className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                validationErrors.education?.[index]?.grade ? 'border-red-500' : 'border-slate-700'
+              } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
             />
+            {validationErrors.education?.[index]?.grade && (
+              <p className="text-red-400 text-sm mt-1">Grade is required</p>
+            )}
           </div>
 
           <div>
@@ -847,8 +1005,13 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
               onChange={(e) => handleEducationChange(index, 'activities', e.target.value)}
               rows={3}
               placeholder="E.g. Student Government, Robotics Club, etc."
-              className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className={`w-full px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                validationErrors.education?.[index]?.activities ? 'border-red-500' : 'border-slate-700'
+              } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
             />
+            {validationErrors.education?.[index]?.activities && (
+              <p className="text-red-400 text-sm mt-1">Activities are required</p>
+            )}
           </div>
         </div>
       ))}
@@ -879,7 +1042,9 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                   setFormData({ ...formData, skills: newSkills });
                 }}
                 placeholder="E.g. React, Python, Project Management"
-                className="flex-1 px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`flex-1 px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.skills?.[index]?.name ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               />
               <select
                 value={skill.category}
@@ -888,7 +1053,9 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                   newSkills[index] = { ...skill, category: e.target.value };
                   setFormData({ ...formData, skills: newSkills });
                 }}
-                className="w-48 px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`w-48 px-4 py-2 rounded-lg bg-slate-800/50 border ${
+                  validationErrors.skills?.[index]?.category ? 'border-red-500' : 'border-slate-700'
+                } text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500`}
               >
                 <option value="">Category</option>
                 <option value="Languages">Languages</option>
@@ -930,11 +1097,12 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
     setFormData({
       ...formData,
       experience: [
+        ...formData.experience,
         {
           title: '',
           employmentType: 'Full-time',
           company: '',
-          currentlyWorking: true, // Default to current position
+          currentlyWorking: true,
           startMonth: '',
           startYear: '',
           endMonth: '',
@@ -942,8 +1110,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
           location: '',
           locationType: 'Hybrid',
           description: ''
-        },
-        ...formData.experience
+        }
       ]
     });
   };
@@ -958,7 +1125,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
         title: '',
         employmentType: 'Full-time',
         company: '',
-        currentlyWorking: false,
+        currentlyWorking: true,
         startMonth: '',
         startYear: '',
         endMonth: '',
