@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -25,13 +25,12 @@ class Profile(Base):
     last_name = Column(String)
     location = Column(String)
     role = Column(String)
-    experience = Column(String)
     is_student = Column(Boolean, default=False)
-    job_title = Column(String)
-    company = Column(String)
     linkedin = Column(String)
     website = Column(String)
     is_employed = Column(Boolean, default=True)
+    education = Column(JSON, default=list)
+    work_experience = Column(JSON, default=list)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

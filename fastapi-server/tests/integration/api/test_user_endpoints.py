@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import json
 from repository.user_repository import UserRepository
 import schemas
+from datetime import datetime
 
 
 def test_get_current_user(client: TestClient, db: Session):
@@ -72,13 +73,36 @@ def test_update_user_profile(client: TestClient, db: Session):
         "last_name": "Doe",
         "location": "New York, NY",
         "role": "Software Engineer",
-        "experience": "5",
         "is_student": False,
-        "job_title": "Senior Developer",
-        "company": "Tech Corp",
         "linkedin": "https://linkedin.com/in/johndoe",
         "website": "https://johndoe.com",
-        "is_employed": True
+        "is_employed": True,
+        "education": [
+            {
+                "school": "Kumaraguru College of Technology",
+                "degree": "BACHELOR OF TECHNOLOGY",
+                "fieldOfStudy": "INFORMATION TECHNOLOGY",
+                "startYear": "2017",
+                "endYear": "2021",
+                "grade": "8.6/10 CGPA",
+                "activities": ""
+            }
+        ],
+        "work_experience": [
+            {
+                "title": "Software Developer",
+                "employmentType": "Full-time",
+                "company": "Thoughtworks",
+                "currentlyWorking": True,
+                "startMonth": "February",
+                "startYear": "2025",
+                "endMonth": "",
+                "endYear": "",
+                "location": "",
+                "locationType": "Hybrid",
+                "description": "Current position as a Software Developer at Thoughtworks."
+            }
+        ]
     }
     
     # Update the profile
@@ -93,13 +117,30 @@ def test_update_user_profile(client: TestClient, db: Session):
     assert data["last_name"] == "Doe"
     assert data["location"] == "New York, NY"
     assert data["role"] == "Software Engineer"
-    assert data["experience"] == "5"
     assert data["is_student"] == False
-    assert data["job_title"] == "Senior Developer"
-    assert data["company"] == "Tech Corp"
     assert data["linkedin"] == "https://linkedin.com/in/johndoe"
     assert data["website"] == "https://johndoe.com"
     assert data["is_employed"] == True
+    
+    # Verify education data
+    assert len(data["education"]) == 1
+    edu = data["education"][0]
+    assert edu["school"] == "Kumaraguru College of Technology"
+    assert edu["degree"] == "BACHELOR OF TECHNOLOGY"
+    assert edu["fieldOfStudy"] == "INFORMATION TECHNOLOGY"
+    assert edu["startYear"] == "2017"
+    assert edu["endYear"] == "2021"
+    
+    # Verify work experience data
+    assert len(data["work_experience"]) == 1
+    exp = data["work_experience"][0]
+    assert exp["title"] == "Software Developer"
+    assert exp["employmentType"] == "Full-time"
+    assert exp["company"] == "Thoughtworks"
+    assert exp["currentlyWorking"] == True
+    assert exp["startMonth"] == "February"
+    assert exp["startYear"] == "2025"
+    assert exp["locationType"] == "Hybrid"
     
     # Verify database record
     response = client.get("/api/users/me")

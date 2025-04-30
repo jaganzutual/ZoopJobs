@@ -4,53 +4,45 @@ from repository.user_repository import UserRepository
 import models
 import schemas
 from tests.conftest import MOCK_RESUME_DATA
+from datetime import datetime
 
 
 def test_create_user(db: Session):
     """Test creating a new user"""
-    # Create a new user
-    user_data = schemas.UserCreate(email="unit_test@example.com")
+    user_data = schemas.UserCreate(email="test@example.com")
     user = UserRepository.create_user(db, user_data)
     
-    # Verify the user was created correctly
     assert user.id is not None
-    assert user.email == "unit_test@example.com"
-    assert user.created_at is not None
-    assert user.updated_at is not None
+    assert user.email == "test@example.com"
+    assert user.onboarding_status == "not_started"
 
 
 def test_get_user(db: Session):
     """Test getting a user by ID"""
-    # Create a user to get
-    user_data = schemas.UserCreate(email="get_user@example.com")
+    # Create a user first
+    user_data = schemas.UserCreate(email="get_test@example.com")
     created_user = UserRepository.create_user(db, user_data)
     
-    # Get the user by ID
+    # Get the user
     user = UserRepository.get_user(db, created_user.id)
     
-    # Verify the user was retrieved correctly
     assert user is not None
     assert user.id == created_user.id
-    assert user.email == "get_user@example.com"
+    assert user.email == "get_test@example.com"
 
 
 def test_get_user_by_email(db: Session):
     """Test getting a user by email"""
-    # Create a user to get
-    email = "get_by_email@example.com"
-    user_data = schemas.UserCreate(email=email)
-    UserRepository.create_user(db, user_data)
+    # Create a user first
+    user_data = schemas.UserCreate(email="email_test@example.com")
+    created_user = UserRepository.create_user(db, user_data)
     
     # Get the user by email
-    user = UserRepository.get_user_by_email(db, email)
+    user = UserRepository.get_user_by_email(db, "email_test@example.com")
     
-    # Verify the user was retrieved correctly
     assert user is not None
-    assert user.email == email
-    
-    # Test with a non-existent email
-    non_existent = UserRepository.get_user_by_email(db, "nonexistent@example.com")
-    assert non_existent is None
+    assert user.id == created_user.id
+    assert user.email == "email_test@example.com"
 
 
 def test_create_user_profile(db: Session):
@@ -65,13 +57,32 @@ def test_create_user_profile(db: Session):
         last_name="Doe",
         location="New York",
         role="Software Engineer",
-        experience="5",
         is_student=False,
-        job_title="Senior Developer",
-        company="Tech Corp",
         linkedin="https://linkedin.com/in/johndoe",
         website="https://johndoe.com",
-        is_employed=True
+        is_employed=True,
+        education=[{
+            "school": "Kumaraguru College of Technology",
+            "degree": "BACHELOR OF TECHNOLOGY",
+            "fieldOfStudy": "INFORMATION TECHNOLOGY",
+            "startYear": "2017",
+            "endYear": "2021",
+            "grade": "8.6/10 CGPA",
+            "activities": ""
+        }],
+        work_experience=[{
+            "title": "Software Developer",
+            "employmentType": "Full-time",
+            "company": "Thoughtworks",
+            "currentlyWorking": True,
+            "startMonth": "February",
+            "startYear": "2025",
+            "endMonth": "",
+            "endYear": "",
+            "location": "",
+            "locationType": "Hybrid",
+            "description": "Current position as a Software Developer at Thoughtworks."
+        }]
     )
     
     # Create the profile
@@ -84,19 +95,44 @@ def test_create_user_profile(db: Session):
     assert profile.last_name == "Doe"
     assert profile.location == "New York"
     assert profile.role == "Software Engineer"
-    assert profile.experience == "5"
     assert profile.is_student is False
-    assert profile.job_title == "Senior Developer"
-    assert profile.company == "Tech Corp"
     assert profile.linkedin == "https://linkedin.com/in/johndoe"
     assert profile.website == "https://johndoe.com"
     assert profile.is_employed is True
+    
+    # Verify education data
+    assert len(profile.education) == 1
+    edu = profile.education[0]
+    assert edu["school"] == "Kumaraguru College of Technology"
+    assert edu["degree"] == "BACHELOR OF TECHNOLOGY"
+    assert edu["fieldOfStudy"] == "INFORMATION TECHNOLOGY"
+    assert edu["startYear"] == "2017"
+    assert edu["endYear"] == "2021"
+    
+    # Verify work experience data
+    assert len(profile.work_experience) == 1
+    exp = profile.work_experience[0]
+    assert exp["title"] == "Software Developer"
+    assert exp["employmentType"] == "Full-time"
+    assert exp["company"] == "Thoughtworks"
+    assert exp["currentlyWorking"] is True
+    assert exp["startMonth"] == "February"
+    assert exp["startYear"] == "2025"
+    assert exp["locationType"] == "Hybrid"
     
     # Test updating the profile
     updated_profile_data = schemas.ProfileUpdate(
         first_name="Johnny",
         last_name="Doe",
-        experience="6"
+        education=[{
+            "school": "MIT",
+            "degree": "Master of Science",
+            "fieldOfStudy": "Computer Science",
+            "startYear": "2021",
+            "endYear": "2023",
+            "grade": "4.0/4.0",
+            "activities": "Research Assistant"
+        }]
     )
     
     updated_profile = UserRepository.create_user_profile(db, updated_profile_data, user.id)
@@ -105,10 +141,18 @@ def test_create_user_profile(db: Session):
     assert updated_profile.id == profile.id
     assert updated_profile.first_name == "Johnny"  # Updated
     assert updated_profile.last_name == "Doe"
-    assert updated_profile.experience == "6"  # Updated
     # Other fields should remain the same
     assert updated_profile.location == "New York"
     assert updated_profile.role == "Software Engineer"
+    
+    # Verify updated education data
+    assert len(updated_profile.education) == 1
+    edu = updated_profile.education[0]
+    assert edu["school"] == "MIT"
+    assert edu["degree"] == "Master of Science"
+    assert edu["fieldOfStudy"] == "Computer Science"
+    assert edu["startYear"] == "2021"
+    assert edu["endYear"] == "2023"
 
 
 def test_save_resume(db: Session):

@@ -57,6 +57,38 @@ async def update_user_profile(profile: schemas.ProfileCreate, user_id: int = 1, 
             logger.info(f"User {user_id} not found, creating new user")
             user = UserRepository.create_user(db, schemas.UserCreate(email=None))
         
+        # Transform the education data to match the schema
+        if profile.education:
+            for edu in profile.education:
+                if isinstance(edu, dict):
+                    # Convert field names to match the schema
+                    if "school" in edu:
+                        edu["institution"] = edu.pop("school")
+                    if "fieldOfStudy" in edu:
+                        edu["field_of_study"] = edu.pop("fieldOfStudy")
+                    if "startYear" in edu:
+                        edu["start_date"] = edu.pop("startYear")
+                    if "endYear" in edu:
+                        edu["end_date"] = edu.pop("endYear")
+        
+        # Transform the work experience data to match the schema
+        if profile.work_experience:
+            for exp in profile.work_experience:
+                if isinstance(exp, dict):
+                    # Convert field names to match the schema
+                    if "title" in exp:
+                        exp["job_title"] = exp.pop("title")
+                    if "employmentType" in exp:
+                        exp["employment_type"] = exp.pop("employmentType")
+                    if "currentlyWorking" in exp:
+                        exp["is_current_job"] = exp.pop("currentlyWorking")
+                    if "startMonth" in exp and "startYear" in exp:
+                        exp["start_date"] = f"{exp.pop('startMonth')} {exp.pop('startYear')}"
+                    if "endMonth" in exp and "endYear" in exp:
+                        exp["end_date"] = f"{exp.pop('endMonth')} {exp.pop('endYear')}"
+                    if "locationType" in exp:
+                        exp["location_type"] = exp.pop("locationType")
+        
         updated_profile = UserRepository.create_user_profile(db, profile, user.id)
         logger.info(f"Successfully updated profile for user_id: {user.id}")
         return updated_profile

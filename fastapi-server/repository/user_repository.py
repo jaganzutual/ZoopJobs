@@ -42,11 +42,21 @@ class UserRepository:
         if db_profile:
             # Update existing profile
             profile_data = profile.model_dump(exclude_unset=True)
+            # Convert education and work_experience to list if they are None
+            if profile_data.get('education') is None:
+                profile_data['education'] = []
+            if profile_data.get('work_experience') is None:
+                profile_data['work_experience'] = []
             for field, value in profile_data.items():
                 setattr(db_profile, field, value)
         else:
             # Create new profile
             profile_data = profile.model_dump(exclude_unset=True)
+            # Convert education and work_experience to list if they are None
+            if profile_data.get('education') is None:
+                profile_data['education'] = []
+            if profile_data.get('work_experience') is None:
+                profile_data['work_experience'] = []
             db_profile = Profile(
                 user_id=user_id,
                 **profile_data
