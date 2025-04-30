@@ -613,7 +613,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({initialData, fileName,
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1">Your Website</label>
           <input
-            type="url"
+            type="text"
             value={formData.personalInfo.website}
             onChange={(e) => handleInputChange('personalInfo', 'website', e.target.value)}
             placeholder="https://mypersonalwebsite.com"
