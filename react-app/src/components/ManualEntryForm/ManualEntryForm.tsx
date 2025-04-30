@@ -603,10 +603,10 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({initialData, fileName,
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-1">LinkedIn Profile</label>
           <input
-            type="url"
+            type="text"
             value={formData.personalInfo.linkedin}
             onChange={(e) => handleInputChange('personalInfo', 'linkedin', e.target.value)}
-            placeholder="https://linkedin.com/in/"
+            placeholder="Enter LinkedIn username or profile URL"
             className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
