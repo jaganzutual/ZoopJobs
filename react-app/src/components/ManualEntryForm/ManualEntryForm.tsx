@@ -52,6 +52,38 @@ interface ValidationErrors {
   skills?: Record<string, boolean>[];
 }
 
+interface WorkExperienceResponse {
+  company: string;
+  job_title: string;
+  start_date?: string;
+  end_date?: string;
+  is_current_job: boolean;
+  description: string;
+}
+
+// Add these helper functions at the top level, before the ManualEntryForm component
+const parseISODate = (isoDate: string | null | undefined): { month: string; year: string } => {
+  if (!isoDate) return { month: '', year: '' };
+  
+  const date = new Date(isoDate);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                 'July', 'August', 'September', 'October', 'November', 'December'];
+  
+  return {
+    month: months[date.getMonth()],
+    year: date.getFullYear().toString()
+  };
+};
+
+const formatDateToISO = (month: string, year: string): string => {
+  if (!month || !year) return '';
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthIndex = months.indexOf(month);
+  if (monthIndex === -1) return '';
+  return `${year}-${String(monthIndex + 1).padStart(2, '0')}-01T00:00:00`;
+};
+
 const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialData, fileName, onSubmit }) => {
   const [formData, setFormData] = useState<FormData>({
     personalInfo: {
@@ -67,7 +99,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
       title: '',
       employmentType: 'Full-time',
       company: '',
-      currentlyWorking: true,
+      currentlyWorking: false,
       startMonth: '',
       startYear: '',
       endMonth: '',
@@ -126,48 +158,34 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
       const mappedExperiences: Experience[] = [];
       
       if (initialData?.work_experience && Array.isArray(initialData.work_experience)) {
-        initialData.work_experience.forEach(exp => {
+        (initialData.work_experience as WorkExperienceResponse[]).forEach(exp => {
           if (!exp) return;
           
-          let startMonth = '', startYear = '';
-          let endMonth = '', endYear = '';
-          
-          if (exp.start_date) {
-            const startParts = exp.start_date.split(' ');
-            if (startParts.length >= 2) {
-              startMonth = startParts[0];
-              startYear = startParts[1];
-            }
-          }
-          
-          if (exp.end_date) {
-            if (exp.end_date.toLowerCase() === 'present') {
-              endMonth = '';
-              endYear = '';
-            } else {
-              const endParts = exp.end_date.split(' ');
-              if (endParts.length >= 2) {
-                endMonth = endParts[0];
-                endYear = endParts[1];
-              }
-            }
-          }
+          const startDate = parseISODate(exp.start_date);
+          const endDate = parseISODate(exp.end_date);
           
           mappedExperiences.push({
             title: exp.job_title || '',
             employmentType: 'Full-time',
             company: exp.company || '',
-            currentlyWorking: exp.end_date === 'Present',
-            startMonth,
-            startYear,
-            endMonth,
-            endYear,
+            currentlyWorking: exp.is_current_job || false,
+            startMonth: startDate.month,
+            startYear: startDate.year,
+            endMonth: endDate.month,
+            endYear: endDate.year,
             location: initialData?.personal_info?.location || '',
             locationType: 'Hybrid',
             description: exp.description || ''
           });
         });
       }
+
+      // Sort experiences by date (latest first)
+      mappedExperiences.sort((a, b) => {
+        const aEndDate = a.currentlyWorking ? new Date() : new Date(formatDateToISO(a.endMonth, a.endYear));
+        const bEndDate = b.currentlyWorking ? new Date() : new Date(formatDateToISO(b.endMonth, b.endYear));
+        return bEndDate.getTime() - aEndDate.getTime();
+      });
 
       // Map skills
       const mappedSkills = initialData?.skills?.map(skill => ({
@@ -195,6 +213,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
           location: initialData?.personal_info?.location || prev.personalInfo.location,
           linkedin: initialData?.personal_info?.linkedin || prev.personalInfo.linkedin,
           website: initialData?.personal_info?.website || prev.personalInfo.website,
+          email: initialData?.personal_info?.email || prev.personalInfo.email,
         },
         experience: mappedExperiences.length > 0 ? mappedExperiences : prev.experience,
         education: mappedEducation.length > 0 ? mappedEducation : prev.education,
@@ -215,7 +234,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
           title: '',
           employmentType: 'Full-time',
           company: '',
-          currentlyWorking: true,
+          currentlyWorking: false,
           startMonth: '',
           startYear: '',
           endMonth: '',
@@ -228,16 +247,12 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
 
       // Special handling for currentlyWorking toggle
       if (field === 'currentlyWorking') {
-        const currentExperience = updatedExperiences[index];
         updatedExperiences[index] = {
-          ...currentExperience,
+          ...updatedExperiences[index],
           currentlyWorking: value as boolean,
-          // Preserve start date fields
-          startMonth: currentExperience.startMonth,
-          startYear: currentExperience.startYear,
           // Clear end date fields only when setting to currently working
-          endMonth: value ? '' : currentExperience.endMonth,
-          endYear: value ? '' : currentExperience.endYear
+          endMonth: value ? '' : updatedExperiences[index].endMonth,
+          endYear: value ? '' : updatedExperiences[index].endYear
         };
       } else {
         updatedExperiences[index] = {
@@ -246,26 +261,26 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
         };
       }
       
-      setFormData({
-        ...formData,
+      setFormData(prevState => ({
+        ...prevState,
         experience: updatedExperiences
-      });
+      }));
     } else if (section === 'personalInfo') {
-      setFormData({
-        ...formData,
+      setFormData(prevState => ({
+        ...prevState,
         personalInfo: {
-          ...formData.personalInfo,
+          ...prevState.personalInfo,
           [field]: value
         }
-      });
+      }));
     } else {
-      setFormData({
-        ...formData,
+      setFormData(prevState => ({
+        ...prevState,
         [section]: {
-          ...formData[section],
+          ...prevState[section],
           [field]: value
         }
-      });
+      }));
     }
   };
 
@@ -364,36 +379,16 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   // Helper function to sort experiences by date
   const sortExperiences = (experiences: Experience[]) => {
     return [...experiences].sort((a, b) => {
-      // For currently working positions, use current date for comparison
-      const aEndYear = a.currentlyWorking ? new Date().getFullYear() : parseInt(a.endYear || '0');
-      const bEndYear = b.currentlyWorking ? new Date().getFullYear() : parseInt(b.endYear || '0');
+      const aEndDate = a.currentlyWorking ? new Date() : new Date(formatDateToISO(a.endMonth, a.endYear));
+      const bEndDate = b.currentlyWorking ? new Date() : new Date(formatDateToISO(b.endMonth, b.endYear));
       
-      // First compare by end year
-      if (aEndYear !== bEndYear) {
-        return bEndYear - aEndYear;
+      if (aEndDate.getTime() !== bEndDate.getTime()) {
+        return bEndDate.getTime() - aEndDate.getTime();
       }
       
-      // If end years are same, compare end months
-      const monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 
-                         'July', 'August', 'September', 'October', 'November', 'December'];
-      const aEndMonth = a.currentlyWorking ? 11 : monthOrder.indexOf(a.endMonth || '');
-      const bEndMonth = b.currentlyWorking ? 11 : monthOrder.indexOf(b.endMonth || '');
-      
-      if (aEndMonth !== bEndMonth) {
-        return bEndMonth - aEndMonth;
-      }
-      
-      // If end dates are same, compare start dates
-      const aStartYear = parseInt(a.startYear || '0');
-      const bStartYear = parseInt(b.startYear || '0');
-      
-      if (aStartYear !== bStartYear) {
-        return bStartYear - aStartYear;
-      }
-      
-      const aStartMonth = monthOrder.indexOf(a.startMonth || '');
-      const bStartMonth = monthOrder.indexOf(b.startMonth || '');
-      return bStartMonth - aStartMonth;
+      const aStartDate = new Date(formatDateToISO(a.startMonth, a.startYear));
+      const bStartDate = new Date(formatDateToISO(b.startMonth, b.startYear));
+      return bStartDate.getTime() - aStartDate.getTime();
     });
   };
 
@@ -401,16 +396,16 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   const sortEducation = (education: Education[]) => {
     return [...education].sort((a, b) => {
       // Sort by end year (most recent first)
-      const aEndYear = parseInt(a.endYear);
-      const bEndYear = parseInt(b.endYear);
+      const aEndYear = parseInt(a.endYear || '0');
+      const bEndYear = parseInt(b.endYear || '0');
       
       if (aEndYear !== bEndYear) {
         return bEndYear - aEndYear;
       }
       
       // If end years are same, sort by start year
-      const aStartYear = parseInt(a.startYear);
-      const bStartYear = parseInt(b.startYear);
+      const aStartYear = parseInt(a.startYear || '0');
+      const bStartYear = parseInt(b.startYear || '0');
       return bStartYear - aStartYear;
     });
   };
@@ -502,13 +497,18 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
       </div>
 
       <div className="flex items-center gap-4">
-        <input
-          type="checkbox"
-          checked={formData.experience[0]?.currentlyWorking || false}
-          onChange={(e) => handleInputChange('experience', 'currentlyWorking', e.target.checked, 0)}
-          className="h-4 w-4 text-blue-600 border-slate-700 focus:ring-blue-500"
-        />
-        <label className="text-sm text-slate-300">I am currently working in this role</label>
+        <label className="flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.experience[0]?.currentlyWorking || false}
+            onChange={(e) => {
+              const newValue = e.target.checked;
+              handleInputChange('experience', 'currentlyWorking', newValue, 0);
+            }}
+            className="h-4 w-4 text-blue-600 border-slate-700 rounded focus:ring-blue-500 cursor-pointer"
+          />
+          <span className="ml-2 text-sm text-slate-300">I am currently working in this role</span>
+        </label>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -522,18 +522,9 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                 className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Month</option>
-                <option value="January">January</option>
-                <option value="February">February</option>
-                <option value="March">March</option>
-                <option value="April">April</option>
-                <option value="May">May</option>
-                <option value="June">June</option>
-                <option value="July">July</option>
-                <option value="August">August</option>
-                <option value="September">September</option>
-                <option value="October">October</option>
-                <option value="November">November</option>
-                <option value="December">December</option>
+                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(month => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -544,7 +535,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
               >
                 <option value="">Year</option>
                 {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                  <option key={year} value={year}>{year}</option>
+                  <option key={year} value={year.toString()}>{year}</option>
                 ))}
               </select>
             </div>
@@ -561,18 +552,9 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                   className="w-full px-4 py-2 rounded-lg bg-slate-800/50 border border-slate-700 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Month</option>
-                  <option value="January">January</option>
-                  <option value="February">February</option>
-                  <option value="March">March</option>
-                  <option value="April">April</option>
-                  <option value="May">May</option>
-                  <option value="June">June</option>
-                  <option value="July">July</option>
-                  <option value="August">August</option>
-                  <option value="September">September</option>
-                  <option value="October">October</option>
-                  <option value="November">November</option>
-                  <option value="December">December</option>
+                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(month => (
+                    <option key={month} value={month}>{month}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -583,7 +565,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                 >
                   <option value="">Year</option>
                   {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                    <option key={year} value={year}>{year}</option>
+                    <option key={year} value={year.toString()}>{year}</option>
                   ))}
                 </select>
               </div>
@@ -753,6 +735,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
                   ))}
                 </select>
               </div>
+
               {validationErrors.experience?.[index]?.startMonth && (
                 <p className="text-red-400 text-sm mt-1">Start month is required</p>
               )}
@@ -1094,15 +1077,14 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
   );
 
   const addExperience = () => {
-    setFormData({
-      ...formData,
+    setFormData(prevState => ({
+      ...prevState,
       experience: [
-        ...formData.experience,
         {
           title: '',
           employmentType: 'Full-time',
           company: '',
-          currentlyWorking: true,
+          currentlyWorking: false,
           startMonth: '',
           startYear: '',
           endMonth: '',
@@ -1110,30 +1092,33 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
           location: '',
           locationType: 'Hybrid',
           description: ''
-        }
+        },
+        ...prevState.experience
       ]
-    });
+    }));
   };
   
   const removeExperience = (index: number) => {
-    const updatedExperiences = [...formData.experience];
-    updatedExperiences.splice(index, 1);
-    
-    setFormData({
-      ...formData,
-      experience: updatedExperiences.length > 0 ? updatedExperiences : [{
-        title: '',
-        employmentType: 'Full-time',
-        company: '',
-        currentlyWorking: true,
-        startMonth: '',
-        startYear: '',
-        endMonth: '',
-        endYear: '',
-        location: '',
-        locationType: 'Hybrid',
-        description: ''
-      }]
+    setFormData(prevState => {
+      const updatedExperiences = [...prevState.experience];
+      updatedExperiences.splice(index, 1);
+      
+      return {
+        ...prevState,
+        experience: updatedExperiences.length > 0 ? updatedExperiences : [{
+          title: '',
+          employmentType: 'Full-time',
+          company: '',
+          currentlyWorking: false,
+          startMonth: '',
+          startYear: '',
+          endMonth: '',
+          endYear: '',
+          location: '',
+          locationType: 'Hybrid',
+          description: ''
+        }]
+      };
     });
   };
   
@@ -1146,7 +1131,7 @@ const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialDa
           degree: '',
           fieldOfStudy: '',
           startYear: '',
-          endYear: new Date().getFullYear().toString(), // Default to current year
+          endYear: '',
           grade: '',
           activities: ''
         },

@@ -6,6 +6,7 @@ import os
 from fastapi import UploadFile
 import shutil
 from datetime import datetime
+from sqlalchemy import desc
 
 class ResumeRepository:
     @staticmethod
@@ -15,7 +16,8 @@ class ResumeRepository:
         db_resume = db.query(models.Resume).filter(models.Resume.user_id == user_id).first()
         
         if db_resume:
-            # Update existing resume
+            # Delete existing work experiences
+            db.query(models.WorkExperience).filter(models.WorkExperience.resume_id == db_resume.id).delete()
             db_resume.file_name = file_name
             db_resume.parsed_data = parsed_data
             db_resume.updated_at = datetime.utcnow()
@@ -29,6 +31,7 @@ class ResumeRepository:
                 updated_at=datetime.utcnow()
             )
             db.add(db_resume)
+            db.flush()  # Get the ID without committing
         
         # Add education entries
         if "education" in parsed_data and parsed_data["education"]:
@@ -46,13 +49,37 @@ class ResumeRepository:
         
         # Add work experience entries
         if "work_experience" in parsed_data and parsed_data["work_experience"]:
-            for exp in parsed_data["work_experience"]:
+            # Sort work experiences by start_date in descending order
+            work_experiences = sorted(
+                parsed_data["work_experience"],
+                key=lambda x: datetime.strptime(x.get("start_date", "1900-01-01"), "%Y-%m-%d") if isinstance(x.get("start_date"), str) else x.get("start_date", datetime.min),
+                reverse=True
+            )
+            
+            for exp in work_experiences:
+                start_date = exp.get("start_date")
+                if isinstance(start_date, str):
+                    try:
+                        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+                    except ValueError:
+                        start_date = None
+
+                end_date = exp.get("end_date")
+                if isinstance(end_date, str) and not exp.get("is_current_job"):
+                    try:
+                        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+                    except ValueError:
+                        end_date = None
+                elif exp.get("is_current_job"):
+                    end_date = None
+
                 db_exp = models.WorkExperience(
                     resume_id=db_resume.id,
                     company=exp.get("company", ""),
                     job_title=exp.get("job_title", ""),
-                    start_date=exp.get("start_date", ""),
-                    end_date=exp.get("end_date", ""),
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_current_job=exp.get("is_current_job", False),
                     description=exp.get("description", "")
                 )
                 db.add(db_exp)
@@ -73,8 +100,16 @@ class ResumeRepository:
 
     @staticmethod
     def get_resume(db: Session, user_id: int) -> Optional[models.Resume]:
-        """Get resume by user ID"""
-        return db.query(models.Resume).filter(models.Resume.user_id == user_id).first()
+        """Get resume by user ID with sorted work experience"""
+        resume = db.query(models.Resume).filter(models.Resume.user_id == user_id).first()
+        if resume and resume.parsed_data and "work_experience" in resume.parsed_data:
+            # Sort work experience by start_date in descending order
+            resume.parsed_data["work_experience"] = sorted(
+                resume.parsed_data["work_experience"],
+                key=lambda x: datetime.strptime(x.get("start_date", "1900-01-01"), "%Y-%m-%d") if isinstance(x.get("start_date"), str) else x.get("start_date", datetime.min),
+                reverse=True
+            )
+        return resume
 
     @staticmethod
     def delete_resume(db: Session, user_id: int) -> bool:

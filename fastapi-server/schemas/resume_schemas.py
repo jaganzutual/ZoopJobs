@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict, validator
 from typing import List, Optional, Dict, Any, Union
+from datetime import datetime
 
 class PersonalInfo(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -24,9 +25,37 @@ class WorkExperience(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     company: Optional[str] = Field(None, description="Company name")
     job_title: Optional[str] = Field(None, description="Job title/position")
-    start_date: Optional[str] = Field(None, description="Start date of work")
-    end_date: Optional[str] = Field(None, description="End date of work")
+    start_date: Optional[datetime] = Field(None, description="Start date of work")
+    end_date: Optional[datetime] = Field(None, description="End date of work")
+    is_current_job: bool = Field(default=False, description="Whether this is the current job")
     description: Optional[str] = Field(None, description="Job description and responsibilities")
+
+    @validator('end_date', pre=True, always=True)
+    def validate_end_date(cls, v, values):
+        if values.get('is_current_job'):
+            return None
+        return v
+
+    @validator('start_date', 'end_date')
+    def parse_dates(cls, v):
+        if isinstance(v, str):
+            try:
+                return datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                try:
+                    return datetime.strptime(v, "%Y-%m")
+                except ValueError:
+                    try:
+                        return datetime.strptime(v, "%Y")
+                    except ValueError:
+                        raise ValueError("Date must be in YYYY-MM-DD, YYYY-MM, or YYYY format")
+        return v
+
+    @validator('end_date')
+    def validate_date_order(cls, v, values):
+        if v and values.get('start_date') and v < values['start_date']:
+            raise ValueError("End date must be after start date")
+        return v
 
 class Skill(BaseModel):
     model_config = ConfigDict(from_attributes=True)
