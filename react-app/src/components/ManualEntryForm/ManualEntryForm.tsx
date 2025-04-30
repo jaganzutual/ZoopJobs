@@ -6,7 +6,6 @@ import { ResumeParseResponse, saveResume, WorkExperience } from '../../services/
 import { Experience } from '../../types';
 
 interface ManualEntryFormProps {
-  onComplete: (data: any) => void;
   onBackToResume?: () => void;
   initialData?: ResumeParseResponse | null;
   fileName?: string;
@@ -84,7 +83,7 @@ const formatDateToISO = (month: string, year: string): string => {
   return `${year}-${String(monthIndex + 1).padStart(2, '0')}-01T00:00:00`;
 };
 
-const ManualEntryForm: React.FC<ManualEntryFormProps> = ({ onComplete, initialData, fileName, onSubmit }) => {
+const ManualEntryForm: React.FC<ManualEntryFormProps> = ({initialData, fileName, onSubmit }) => {
   const [formData, setFormData] = useState<FormData>({
     personalInfo: {
       firstName: '',

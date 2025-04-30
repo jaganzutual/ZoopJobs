@@ -126,7 +126,6 @@ const OnboardingPage: React.FC = () => {
               Your Information
             </h2>
             <ManualEntryForm
-              onComplete={handleOnboardingComplete}
               initialData={resumeData}
               fileName={fileName}
               onSubmit={handleOnboardingComplete}

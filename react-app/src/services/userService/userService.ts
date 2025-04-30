@@ -1,15 +1,19 @@
-import axios from 'axios';
 import { UserProfile } from '../../types/user';
+import apiService from '../apiService/apiService';
+import { 
+  USER_CURRENT_ENDPOINT, 
+  USER_UPDATE_PROFILE_ENDPOINT 
+} from '../apiService/apiEndpoints';
 
-const API_BASE_URL = '/api/users';
+export type OnboardingStatus = 'not_started' | 'partial' | 'completed';
 
 /**
  * Get the current user profile with all data including onboarding status
  */
 export const getCurrentUser = async (): Promise<UserProfile | null> => {
   try {
-    const response = await axios.get<UserProfile>(`${API_BASE_URL}/current`);
-    return response.data;
+    const response = await apiService.get<UserProfile>(USER_CURRENT_ENDPOINT);
+    return response;
   } catch (error) {
     console.error('Error fetching current user:', error);
     return null;
@@ -22,7 +26,7 @@ export const getCurrentUser = async (): Promise<UserProfile | null> => {
  */
 export const updateUserProfile = async (profileData: Partial<UserProfile>): Promise<void> => {
   try {
-    await axios.put(`${API_BASE_URL}/profile`, profileData);
+    await apiService.put(USER_UPDATE_PROFILE_ENDPOINT, profileData);
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;
@@ -31,14 +35,12 @@ export const updateUserProfile = async (profileData: Partial<UserProfile>): Prom
 
 export const updateOnboardingStatus = async (status: OnboardingStatus): Promise<void> => {
   try {
-    await axios.put(`${API_BASE_URL}/onboarding-status`, { status });
+    await apiService.put(USER_UPDATE_PROFILE_ENDPOINT, { onboardingStatus: status });
   } catch (error) {
     console.error('Error updating onboarding status:', error);
     throw error;
   }
 };
-
-export type OnboardingStatus = 'not_started' | 'partial' | 'completed';
 
 /**
  * Check if user has completed onboarding
@@ -46,8 +48,8 @@ export type OnboardingStatus = 'not_started' | 'partial' | 'completed';
  */
 export const hasCompletedOnboarding = async (): Promise<OnboardingStatus> => {
   try {
-    const response = await axios.get('/api/user/onboarding-status');
-    return response.data.status;
+    const response = await apiService.get<{ status: OnboardingStatus }>(USER_CURRENT_ENDPOINT);
+    return response.status;
   } catch (error) {
     console.error('Error checking onboarding status:', error);
     return 'not_started';
