@@ -1,15 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { uploadResume, parseResume, ResumeParseResponse } from '../../services/resumeService/resumeService';
+import { uploadResume, saveResume, ResumeParseResponse } from '../../services/resumeService/resumeService';
 
 interface ResumeUploadFormProps {
-  onResumeDataLoaded: (data: ResumeParseResponse) => void;
+  onResumeDataLoaded: (data: ResumeParseResponse, file: File) => void;
   onError: (error: string) => void;
 }
 
 const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded, onError }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [isParsing, setIsParsing] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,23 +41,18 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded,
 
     try {
       setIsUploading(true);
-      const fileId = await uploadResume(file);
+      console.log('[ResumeUploadForm] Starting resume upload with file:', file.name);
+      
+      const parsedData = await uploadResume(file);
       setIsUploading(false);
+      
+      console.log('[ResumeUploadForm] Resume parsed successfully, passing data to parent');
 
-      if (!fileId) {
-        setErrorMessage('Failed to upload resume');
-        onError('Failed to upload resume');
-        return;
-      }
-
-      setIsParsing(true);
-      const resumeData = await parseResume(fileId.id);
-      setIsParsing(false);
-
-      onResumeDataLoaded(resumeData);
+      // Pass both parsed data and the file to parent component
+      onResumeDataLoaded(parsedData, file);
     } catch (error) {
       setIsUploading(false);
-      setIsParsing(false);
+      console.error('[ResumeUploadForm] Error during resume upload/parse:', error);
       const errorMsg = 'Error processing resume: ' + (error instanceof Error ? error.message : String(error));
       setErrorMessage(errorMsg);
       onError(errorMsg);
@@ -88,7 +83,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded,
                 type="button"
                 onClick={handleUploadClick}
                 className="px-5 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all duration-300 shadow-lg shadow-blue-500/20 flex items-center mx-auto"
-                disabled={isUploading || isParsing}
+                disabled={isUploading || isSaving}
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
@@ -116,7 +111,7 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded,
               type="button"
               onClick={handleUploadAndParse}
               className="w-full px-5 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 shadow-lg shadow-blue-500/20 flex items-center justify-center"
-              disabled={isUploading || isParsing}
+              disabled={isUploading || isSaving}
             >
               {isUploading ? (
                 <>
@@ -126,13 +121,13 @@ const ResumeUploadForm: React.FC<ResumeUploadFormProps> = ({ onResumeDataLoaded,
                   </svg>
                   Uploading...
                 </>
-              ) : isParsing ? (
+              ) : isSaving ? (
                 <>
                   <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Extracting Data...
+                  Saving...
                 </>
               ) : (
                 <>

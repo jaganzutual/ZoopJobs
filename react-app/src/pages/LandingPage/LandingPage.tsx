@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSpring, animated, config } from '@react-spring/web';
 import { useInView } from 'react-intersection-observer';
 import Logo from '../../assets/images/zoopjobs-logo.svg';
+import apiService from '../../services/apiService/apiService';
+import { UserProfile } from '../../types/user';
+import { USER_CURRENT_ENDPOINT } from '../../services/apiService/apiEndpoints';
 import OnboardingForm from '../../components/OnboardingForm/OnboardingForm';
 import '../../assets/styles/landing.css';
 
@@ -63,6 +66,7 @@ const LandingPage: React.FC = () => {
   const [stepsRef, stepsInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const [ctaRef, ctaInView] = useInView({ triggerOnce: true, threshold: 0.1 });
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -102,6 +106,34 @@ const LandingPage: React.FC = () => {
 
     fetchStarCount();
   }, []);
+
+  // Check onboarding status when component mounts
+  useEffect(() => {
+    const checkUserStatus = async () => {
+      try {
+        const userData = await apiService.get<UserProfile>(USER_CURRENT_ENDPOINT);
+        
+        // Navigate based on onboarding status
+        switch (userData.onboarding_status) {
+          case 'completed':
+            navigate('/dashboard');
+            break;
+          case 'partial':
+            navigate('/onboarding');
+            break;
+          case 'not_started':
+          default:
+            setIsLoading(false);
+            break;
+        }
+      } catch (error) {
+        console.error('Error checking user status:', error);
+        setIsLoading(false);
+      }
+    };
+
+    checkUserStatus();
+  }, [navigate]);
 
   const handleObjectClick = useCallback((objectId: string) => {
     setClickedObjects(prev => ({
@@ -160,6 +192,15 @@ const LandingPage: React.FC = () => {
   const handleGetStarted = () => {
     navigate('/onboarding');
   };
+
+  // Show loading spinner while checking status
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-indigo-950 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white overflow-hidden">
